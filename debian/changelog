@@ -1,4 +1,4 @@
-indicator-appmenu (0.0.9-0ubuntu2) maverick; urgency=low
+indicator-appmenu (0.0.9-0ubuntu2~ppa1) maverick; urgency=low
 
   * Fix for xfce4-indicator-plugin
 
