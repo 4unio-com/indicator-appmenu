@@ -1,3 +1,9 @@
+indicator-appmenu (0.0.9-0ubuntu2) maverick; urgency=low
+
+  * Fix for xfce4-indicator-plugin
+
+ -- Aurélien Gâteau <aurelien.gateau@canonical.com>  Fri, 03 Sep 2010 18:06:05 +0200
+
 indicator-appmenu (0.0.9-0ubuntu1) maverick; urgency=low
 
   * New upstream release.
