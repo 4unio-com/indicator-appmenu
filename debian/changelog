@@ -1,3 +1,25 @@
+indicator-appmenu (0.0.11-0ubuntu3) maverick; urgency=low
+
+  * Cherry pick fix to blacklist chrome and chromium 
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Thu, 16 Sep 2010 11:31:02 -0400
+
+indicator-appmenu (0.0.11-0ubuntu2) maverick; urgency=low
+
+  * Cherry pick fix for maximized windows getting closed (LP: #637108)
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Thu, 16 Sep 2010 08:59:12 -0400
+
+indicator-appmenu (0.0.11-0ubuntu1) maverick; urgency=low
+
+  * New upstream release.
+    * Check to see if an app wants stubs shown (LP: #633211)
+    * Adding a blacklist of known desktop files (LP: #633211)
+  * debian/control
+    * Bumped build depends for libbamf-dev to 0.2.50
+
+ -- Ted Gould <ted@ubuntu.com>  Wed, 15 Sep 2010 15:07:36 -0500
+
 indicator-appmenu (0.0.10-0ubuntu2~ppa1) maverick; urgency=low
 
   * Applied fix for xfce4-indicator-plugin to latest release
@@ -29,6 +51,14 @@ indicator-appmenu (0.0.9-0ubuntu1) maverick; urgency=low
     - DBus name change, s/WindowMenu/AppMenu/g
 
  -- Ken VanDine <ken.vandine@canonical.com>  Thu, 22 Jul 2010 15:15:25 +0200
+
+indicator-appmenu (0.0.8-0ubuntu2~ppa1) lucid; urgency=low
+
+  * Merge upstream
+    * Adding in a debug interface for getting JSON data from the
+      applet directly.
+
+ -- Ted Gould <ted@ubuntu.com>  Mon, 12 Jul 2010 17:09:24 -0500
 
 indicator-appmenu (0.0.8-0ubuntu1) maverick; urgency=low
 
