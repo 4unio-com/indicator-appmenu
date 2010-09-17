@@ -1005,9 +1005,7 @@ _application_menu_registrar_server_register_window (IndicatorAppmenu * iapp, gui
 		}
 	}
 
-	/* For some reason this call causes the XFCE indicator plugin to hide all
-	 * its content! */
-	/* dbus_g_method_return(method); */
+	dbus_g_method_return(method);
 	return TRUE;
 }
 
