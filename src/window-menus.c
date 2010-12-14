@@ -733,6 +733,8 @@ void
 window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, guint timestamp)
 {
 	WMEntry * wme = (WMEntry *)entry;
-	dbusmenu_menuitem_send_about_to_show(wme->mi, NULL, NULL);
+	DbusmenuClient * client = (DbusmenuClient *)WINDOW_MENUS_GET_PRIVATE(wm)->client;
+	gint id = dbusmenu_menuitem_get_id(wme->mi);
+	dbusmenu_client_send_about_to_show(client, id, NULL, NULL);
 	return;
 }
