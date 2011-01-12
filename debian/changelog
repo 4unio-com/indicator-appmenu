@@ -1,3 +1,13 @@
+indicator-appmenu (0.0.13-0ubuntu5~ppa1) natty; urgency=low
+
+  * Merged gdbus and dbusmenu-glib-0.4 port
+  * debian/control
+    - Added build depends for dh-autoreconf
+  * debian/rules
+    - Added autoreconf.mk
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Wed, 12 Jan 2011 14:42:43 -0600
+
 indicator-appmenu (0.0.13-0ubuntu4) natty; urgency=low
 
   * debian/patches/01-shortcut-fix.patch: Fix the handling of showing
