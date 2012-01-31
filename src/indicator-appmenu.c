@@ -69,6 +69,12 @@ enum _ActiveStubsState {
 	STUBS_HIDE
 };
 
+typedef enum _MenuMode MenuMode;
+enum _MenuMode {
+	MENU_MODE_SEVERAL,
+	MENU_MODE_SINGLE
+};
+
 struct _IndicatorAppmenuClass {
 	IndicatorObjectClass parent_class;
 
@@ -110,6 +116,7 @@ struct _IndicatorAppmenu {
 	GHashTable * destruction_timers;
 
 	GSettings * settings;
+	MenuMode menu_mode;
 };
 
 
@@ -307,6 +314,7 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->owner_id = 0;
 	self->dbus_registration = 0;
 	self->settings = NULL;
+	self->menu_mode = MENU_MODE_SEVERAL;
 
 	/* Getting our settings */
 	if (settings_schema_exists("com.canonical.indicator.appmenu")) {
