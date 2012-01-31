@@ -29,6 +29,7 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <libindicator/indicator.h>
 #include <libindicator/indicator-object.h>
+#include <libindicator/indicator-image-helper.h>
 
 #include <libdbusmenu-glib/menuitem.h>
 #include <libdbusmenu-glib/client.h>
@@ -891,6 +892,20 @@ menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
 	g_debug("Menu mode changed to: %d", iapp->menu_mode);
 
 	/* TODO: Deal with implications of a change */
+
+	/* If we're going to single menus make sure we have the objects
+	   we need built */
+	if (iapp->menu_mode == MENU_MODE_SINGLE) {
+		if (iapp->single_menu.menu == NULL) {
+			iapp->single_menu.menu = GTK_MENU(gtk_menu_new());
+			g_object_ref_sink(iapp->single_menu.menu);
+		}
+
+		if (iapp->single_menu.image == NULL) {
+			iapp->single_menu.image = indicator_image_helper("indicator-appmenu-menu-panel");
+			g_object_ref_sink(iapp->single_menu.image);
+		}
+	}
 
 	return;
 }
