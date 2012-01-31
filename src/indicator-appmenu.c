@@ -117,6 +117,7 @@ struct _IndicatorAppmenu {
 
 	GSettings * settings;
 	MenuMode menu_mode;
+	IndicatorObjectEntry single_menu;
 };
 
 
@@ -315,6 +316,12 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->dbus_registration = 0;
 	self->settings = NULL;
 	self->menu_mode = MENU_MODE_SEVERAL;
+	self->single_menu.parent_object = INDICATOR_OBJECT(self);
+	self->single_menu.label = NULL;
+	self->single_menu.image = NULL;
+	self->single_menu.menu = NULL;
+	self->single_menu.accessible_desc = NULL;
+	self->single_menu.name_hint = "application-menus";
 
 	/* Getting our settings */
 	if (settings_schema_exists("com.canonical.indicator.appmenu")) {
@@ -523,6 +530,14 @@ indicator_appmenu_dispose (GObject *object)
 	}
 
 	g_clear_object(&iapp->settings);
+
+	g_clear_object(&iapp->single_menu.label);
+	g_clear_object(&iapp->single_menu.image);
+	g_clear_object(&iapp->single_menu.menu);
+	if (iapp->single_menu.accessible_desc != NULL) {
+		g_free((gchar *)iapp->single_menu.accessible_desc); /* cast to remove const */
+		iapp->single_menu.accessible_desc = NULL;
+	}
 
 	G_OBJECT_CLASS (indicator_appmenu_parent_class)->dispose (object);
 	return;
