@@ -848,7 +848,34 @@ new_window (BamfMatcher * matcher, BamfView * view, gpointer user_data)
 static void
 menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
 {
+	g_return_if_fail(IS_INDICATOR_APPMENU(user_data));
+	g_return_if_fail(g_strcmp0(key, "menu-mode") == 0);
 
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	MenuMode newmode = MENU_MODE_SEVERAL;
+	gchar * strmode = g_settings_get_string(settings, key);
+
+	/* GSettings represents the enum as a set of strings.  So we need
+	   to convert that back into a real enum here */
+	if (g_strcmp0(strmode, "global") == 0) {
+		newmode = MENU_MODE_SEVERAL;
+	} else if (g_strcmp0(strmode, "locally-integrated") == 0) {
+		newmode = MENU_MODE_SINGLE;
+	} else {
+		g_assert_not_reached();
+	}
+
+	g_free(strmode);
+
+	/* No change, we are done here */
+	if (newmode == iapp->menu_mode) {
+		return;
+	}
+
+	iapp->menu_mode = newmode;
+	g_debug("Menu mode changed to: %d", iapp->menu_mode);
+
+	/* TODO: Deal with implications of a change */
 
 	return;
 }
