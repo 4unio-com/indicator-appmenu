@@ -186,6 +186,9 @@ static void active_window_changed                                    (BamfMatche
                                                                       BamfView * oldview,
                                                                       BamfView * newview,
                                                                       gpointer user_data);
+static void menu_mode_changed                                        (GSettings * settings,
+                                                                      const gchar * key,
+                                                                      gpointer user_data);
 static GQuark error_quark                                            (void);
 static gboolean retry_registration                                   (gpointer user_data);
 static void bus_method_call                                          (GDBusConnection * connection,
@@ -308,6 +311,9 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	/* Getting our settings */
 	if (settings_schema_exists("com.canonical.indicator.appmenu")) {
 		self->settings = g_settings_new("com.canonical.indicator.appmenu");
+
+		g_signal_connect(G_OBJECT(self->settings), "changed::menu-mode", G_CALLBACK(menu_mode_changed), self);
+		menu_mode_changed(self->settings, "menu-mode", self);
 	}
 
 	/* Setup the entries for the fallbacks */
@@ -826,6 +832,15 @@ new_window (BamfMatcher * matcher, BamfView * view, gpointer user_data)
 			switch_default_app(iapp, NULL, NULL);
 		}
 	}
+
+	return;
+}
+
+/* Called to get a new menu mode from the settings */
+static void
+menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
+{
+
 
 	return;
 }
