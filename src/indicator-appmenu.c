@@ -221,6 +221,7 @@ static void menus_destroyed                                          (GObject * 
 static void source_unregister                                        (gpointer user_data);
 static GVariant * unregister_window                                  (IndicatorAppmenu * iapp,
                                                                       guint windowid);
+static gboolean settings_schema_exists                               (const gchar * schema);
 
 /* Unique error codes for debug interface */
 enum {
@@ -304,6 +305,11 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->dbus_registration = 0;
 	self->settings = NULL;
 
+	/* Getting our settings */
+	if (settings_schema_exists("com.canonical.indicator.appmenu")) {
+		self->settings = g_settings_new("com.canonical.indicator.appmenu");
+	}
+
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
 
@@ -340,6 +346,22 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->debug->appmenu = self;
 
 	return;
+}
+
+/* Check to see if a schema exists */
+static gboolean
+settings_schema_exists (const gchar * schema)
+{
+	const gchar * const * schemas = g_settings_list_schemas();
+	int i;
+
+	for (i = 0; schemas[i] != NULL; i++) {
+		if (g_strcmp0(schemas[i], schema) == 0) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }
 
 /* If we weren't able to register on the bus, then we need
