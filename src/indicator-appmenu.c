@@ -108,6 +108,8 @@ struct _IndicatorAppmenu {
 	guint dbus_registration;
 
 	GHashTable * destruction_timers;
+
+	GSettings * settings;
 };
 
 
@@ -300,6 +302,7 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->bus = NULL;
 	self->owner_id = 0;
 	self->dbus_registration = 0;
+	self->settings = NULL;
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
@@ -482,6 +485,8 @@ indicator_appmenu_dispose (GObject *object)
 		   We're just keeping an efficient pointer to them. */
 		iapp->desktop_menu = NULL;
 	}
+
+	g_clear_object(&iapp->settings);
 
 	G_OBJECT_CLASS (indicator_appmenu_parent_class)->dispose (object);
 	return;
