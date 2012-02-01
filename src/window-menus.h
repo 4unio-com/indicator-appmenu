@@ -68,6 +68,8 @@ guint window_menus_get_xid (WindowMenus * wm);
 gchar * window_menus_get_path (WindowMenus * wm);
 gchar * window_menus_get_address (WindowMenus * wm);
 
+void window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, guint timestamp);
+
 gboolean window_menus_get_error_state (WindowMenus * wm);
 DbusmenuStatus window_menus_get_status (WindowMenus * wm);
 
