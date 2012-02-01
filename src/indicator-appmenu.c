@@ -1244,6 +1244,73 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
+/* Find the label in a GTK MenuItem */
+GtkLabel *
+mi_find_label (GtkWidget * mi)
+{
+	if (GTK_IS_LABEL(mi)) {
+		return GTK_LABEL(mi);
+	}
+
+	GtkLabel * retval = NULL;
+
+	if (GTK_IS_CONTAINER(mi)) {
+		GList * children = gtk_container_get_children(GTK_CONTAINER(mi));
+		GList * child = children;
+
+		while (child != NULL && retval == NULL) {
+			if (GTK_IS_WIDGET(child->data)) {
+				retval = mi_find_label(GTK_WIDGET(child->data));
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
+	}
+
+	return retval;
+}
+
+/* Find the icon in a GTK MenuItem */
+GtkImage *
+mi_find_icon (GtkWidget * mi)
+{
+	if (GTK_IS_IMAGE(mi)) {
+		return GTK_IMAGE(mi);
+	}
+
+	GtkImage * retval = NULL;
+
+	if (GTK_IS_CONTAINER(mi)) {
+		GList * children = gtk_container_get_children(GTK_CONTAINER(mi));
+		GList * child = children;
+
+		while (child != NULL && retval == NULL) {
+			if (GTK_IS_WIDGET(child->data)) {
+				retval = mi_find_icon(GTK_WIDGET(child->data));
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
+	}
+
+	return retval;
+}
+
+/* Check the menu and make sure we return it if it's a menu
+   all proper like that */
+GtkMenu *
+mi_find_menu (GtkMenuItem * mi)
+{
+	GtkWidget * retval = gtk_menu_item_get_submenu(mi);
+	if (GTK_IS_MENU(retval)) {
+		return GTK_MENU(retval);
+	} else {
+		return NULL;
+	}
+}
+
 /* Take a GtkMenu and make it into our entries */
 static void
 sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
@@ -1266,6 +1333,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			mi = GTK_MENU_ITEM(child->data);
 		} else {
 			child = g_list_next(child);
+			continue;
 		}
 
 		GtkLabel * label = mi_find_label(mi);
