@@ -1333,11 +1333,8 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 /* If we're displaying a list of entries we need to remove those before
    we could switch to a different set of entries */
 static void
-remove_current_entries (IndicatorAppmenu * iapp)
+disconnect_current_signals (IndicatorAppmenu * iapp)
 {
-	/* hide the entries that we're swapping out */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), FALSE);
-	
 	/* Disconnect signals */
 	if (iapp->sig_entry_added != 0) {
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_added);
@@ -1366,7 +1363,7 @@ remove_current_entries (IndicatorAppmenu * iapp)
 /* Put back some entries to ensure we've got something to click on!  This might
    be the stubs in some cases */
 static void
-add_default_app_entries (IndicatorAppmenu * iapp)
+reconnect_signals (IndicatorAppmenu * iapp)
 {
 	/* If we're putting up a new window, let's do that now. */
 	if (iapp->default_app != NULL) {
@@ -1392,9 +1389,6 @@ add_default_app_entries (IndicatorAppmenu * iapp)
 		                                           G_CALLBACK(window_a11y_update),
 		                                           iapp);
 	}
-
-	/* show the entries that we're swapping in */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), TRUE);
 
 		/* Set up initial state for new entries if needed */
 	if (iapp->default_app != NULL &&
@@ -1427,7 +1421,7 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		return;
 	}
 
-	remove_current_entries(iapp);
+	disconnect_current_signals(iapp);
 
 	/* Default App is NULL, let's see if it needs replacement */
 	iapp->default_app = NULL;
@@ -1441,7 +1435,20 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		iapp->default_app = newdef;
 	}
 
-	add_default_app_entries(iapp);
+	GtkMenu * menus = NULL;
+
+	if (iapp->default_app != NULL) {
+		menus = window_menus_get_menu(iapp->default_app);
+	}
+
+	if (menus == NULL && iapp->active_window == NULL) {
+		menus = window_menus_get_menu(iapp->desktop_menu);
+	}
+
+	sync_menu_to_app_entries(iapp, menus);	
+	reconnect_signals(iapp);
+
+	/* TODO: Send stubs if appropriate */
 
 	return;
 }
