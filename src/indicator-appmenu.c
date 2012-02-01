@@ -333,6 +333,9 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 		menu_mode_changed(self->settings, "menu-mode", self);
 	}
 
+	/* Setup the entries for applications */
+	self->application_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 10); /* 10 entries should be enough for anyone */
+
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
 
@@ -550,6 +553,11 @@ static void
 indicator_appmenu_finalize (GObject *object)
 {
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(object);
+
+	if (iapp->application_menus != NULL) {
+		g_array_free(iapp->application_menus, TRUE);
+		iapp->application_menus = NULL;
+	}
 
 	if (iapp->window_menus != NULL) {
 		if (iapp->window_menus->len != 0) {
