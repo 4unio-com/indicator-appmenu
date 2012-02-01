@@ -1234,6 +1234,102 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
+/* Take a GtkMenu and make it into our entries */
+static void
+sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
+{
+	GList * children = NULL;
+	
+	if (GTK_IS_CONTAINER(menu)) {
+		children = gtk_container_get_children(GTK_CONTAINER(menu));
+	}
+
+	GList * child = children;
+	guint i = 0;
+
+	/* Let's go through entries as we have them */
+	while (i < iapp->application_menus->len && child != NULL) {
+		GtkMenuItem * mi = NULL;
+
+		/* If it's not a menu item, move along the list */
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			mi = GTK_MENU_ITEM(child->data);
+		} else {
+			child = g_list_next(child);
+		}
+
+		GtkLabel * label = mi_find_label(mi);
+		GtkIcon * icon = mi_find_icon(mi);
+		GtkMenu * sub = mi_find_menu(mi);
+
+		IndicatorObjectEntry * entry = &g_array_get_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		/* Check to see if we're the same */
+		if (entry->label == label && entry->icon == icon && entry->menu == sub) {
+			/* If we are move both pointers and continue */
+			i++;
+			child = g_list_next(child);
+			continue;
+		}
+
+		/* We need to build a new entry to handle the menuitem */
+		IndicatorEntryObject newentry = {
+			parent_object: INDICATOR_OBJECT(iapp),
+			label: label,
+			icon: icon,
+			menu: sub,
+			accessible_desc: NULL, /* TODO: FIX THIS */
+			name_hint: "application-menus"
+		};
+
+		g_array_insert_val(iapp->application_menus, i, newentry);
+		/* TODO: Check visibility */
+		/* TODO: Signal added */
+
+		child = g_list_next(child);
+	}
+
+	while (i < iapp->application_menus->len) {
+		IndicatorObjectEntry * entry = &g_array_get_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		/* TODO: Signal removed */
+		g_array_remove_index(iapp->application_menus, i);
+	}
+
+	while (child != NULL) {
+		GtkMenuItem * mi = NULL;
+
+		/* If it's not a menu item, move along the list */
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			mi = GTK_MENU_ITEM(child->data);
+		} else {
+			child = g_list_next(child);
+		}
+
+		GtkLabel * label = mi_find_label(mi);
+		GtkIcon * icon = mi_find_icon(mi);
+		GtkMenu * sub = mi_find_menu(mi);
+
+		/* We need to build a new entry to handle the menuitem */
+		IndicatorEntryObject newentry = {
+			parent_object: INDICATOR_OBJECT(iapp),
+			label: label,
+			icon: icon,
+			menu: sub,
+			accessible_desc: NULL, /* TODO: FIX THIS */
+			name_hint: "application-menus"
+		};
+
+		g_array_insert_val(iapp->application_menus, i, newentry);
+		/* TODO: Check visibility */
+		/* TODO: Signal added */
+
+		child = g_list_next(child);
+	}
+
+	return;
+}
+
 /* If we're displaying a list of entries we need to remove those before
    we could switch to a different set of entries */
 static void
