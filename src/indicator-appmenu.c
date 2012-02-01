@@ -104,6 +104,7 @@ struct _IndicatorAppmenu {
 	GtkMenuItem * close_item;
 
 	GArray * window_menus;
+	GArray * application_menus;
 
 	GHashTable * desktop_windows;
 	WindowMenus * desktop_menu;
@@ -1004,14 +1005,19 @@ show_menu_stubs (BamfApplication * app)
 	return TRUE;
 }
 
-/* Convert a GtkMenu into a set of entries so that everything is
-   happy happy */
+/* Take a list of entries and turn it into a list instead of
+   an array */
 static GList *
-menu_to_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
+entry_array_to_list (GArray * array)
 {
+	GList * output = NULL;
+	int i;
 
+	for (i = 0; i < array->len; i++) {
+		output = g_list_prepend(output, &g_array_index(array, IndicatorObjectEntry, i));
+	}
 
-	return NULL;
+	return g_list_reverse(output);
 }
 
 /* Get the current set of entries */
@@ -1028,16 +1034,13 @@ get_entries (IndicatorObject * io)
 
 	/* If we have a focused app with menus, use it's windows */
 	if (iapp->default_app != NULL) {
-		return menu_to_entries(iapp, window_menus_get_menu(iapp->default_app));
+		return entry_array_to_list(iapp->application_menus);
 	}
 
-	/* Else, let's go with desktop windows if there isn't a focused window */
+	/* Else, let's go with desktop windows if there isn't a focused window.
+	   They should already be put in the application menus if that's the case */
 	if (iapp->active_window == NULL) {
-		if (iapp->desktop_menu == NULL) {
-			return NULL;
-		} else {
-			return menu_to_entries(iapp, window_menus_get_menu(iapp->desktop_menu));
-		}
+		return entry_array_to_list(iapp->application_menus);
 	}
 
 	/* Oh, now we're looking at stubs. */
@@ -1065,17 +1068,9 @@ get_entries (IndicatorObject * io)
 		return NULL;
 	}
 
-	GList * output = NULL;
-	int i;
-
-	/* There is only one item in window_menus now, but there
-	   was more, and there is likely to be more in the future
-	   so we're leaving this here to avoid a possible bug. */
-	for (i = 0; i < iapp->window_menus->len; i++) {
-		output = g_list_append(output, &g_array_index(iapp->window_menus, IndicatorObjectEntry, i));
-	}
-
-	return output;
+	/* If we're down here we want to push out those stubs, let's
+	   get 'em out! */
+	return entry_array_to_list(iapp->window_menus);
 }
 
 /* Grabs the location of the entry */
