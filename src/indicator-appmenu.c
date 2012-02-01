@@ -371,6 +371,7 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 }
 
 /* Check to see if a schema exists */
+/* TODO: Use one in utils on merge */
 static gboolean
 settings_schema_exists (const gchar * schema)
 {
