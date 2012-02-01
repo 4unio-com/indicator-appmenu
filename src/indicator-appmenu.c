@@ -1345,10 +1345,10 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			sub = mi_find_menu(mi);
 		}
 
-		IndicatorObjectEntry * entry = &g_array_get_index(iapp->application_menus, IndicatorObjectEntry, i);
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 
 		/* Check to see if we're the same */
-		if (entry->label == label && entry->icon == icon && entry->menu == sub) {
+		if (entry->label == label && entry->image == icon && entry->menu == sub) {
 			/* If we are move both pointers and continue */
 			i++;
 			child = g_list_next(child);
@@ -1356,10 +1356,10 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 		}
 
 		/* We need to build a new entry to handle the menuitem */
-		IndicatorEntryObject newentry = {
+		IndicatorObjectEntry newentry = {
 			parent_object: INDICATOR_OBJECT(iapp),
 			label: label,
-			icon: icon,
+			image: icon,
 			menu: sub,
 			accessible_desc: NULL, /* TODO: FIX THIS */
 			name_hint: "application-menus"
@@ -1373,7 +1373,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 	}
 
 	while (i < iapp->application_menus->len) {
-		IndicatorObjectEntry * entry = &g_array_get_index(iapp->application_menus, IndicatorObjectEntry, i);
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 
 		/* TODO: Signal removed */
 		g_array_remove_index(iapp->application_menus, i);
@@ -1389,15 +1389,21 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			child = g_list_next(child);
 		}
 
-		GtkLabel * label = mi_find_label(mi);
-		GtkIcon * icon = mi_find_icon(mi);
-		GtkMenu * sub = mi_find_menu(mi);
+		GtkLabel * label = NULL;
+		GtkImage * icon = NULL;
+		GtkMenu * sub = NULL;
+		if (GTK_IS_MENU_ITEM(mi)) {
+			label = mi_find_label(GTK_WIDGET(mi));
+			icon = mi_find_icon(GTK_WIDGET(mi));
+			sub = mi_find_menu(mi);
+		}
+
 
 		/* We need to build a new entry to handle the menuitem */
-		IndicatorEntryObject newentry = {
+		IndicatorObjectEntry newentry = {
 			parent_object: INDICATOR_OBJECT(iapp),
 			label: label,
-			icon: icon,
+			image: icon,
 			menu: sub,
 			accessible_desc: NULL, /* TODO: FIX THIS */
 			name_hint: "application-menus"
