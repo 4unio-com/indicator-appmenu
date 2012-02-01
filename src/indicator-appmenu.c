@@ -1216,30 +1216,15 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
-/* Switch applications, remove all the entires for the previous
-   one and add them for the new application */
+/* If we're displaying a list of entries we need to remove those before
+   we could switch to a different set of entries */
 static void
-switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * active_window)
+remove_current_entries (IndicatorAppmenu * iapp)
 {
-	GList * entry_head, * entries;
-
-	if (iapp->default_app == newdef && iapp->default_app != NULL) {
-		/* We've got an app with menus and it hasn't changed. */
-
-		/* Keep active window up-to-date, though we're probably not
-		   using it much. */
-		switch_active_window(iapp, active_window);
-		return;
-	}
-
-	if (iapp->default_app == NULL && iapp->active_window == active_window && newdef == NULL) {
-		/* There's no application menus, but the active window hasn't
-		   changed.  So there's no change. */
-		return;
-	}
+	GList * entry_head = NULL;
+	GList * entries = NULL;
 
 	entry_head = indicator_object_get_entries(INDICATOR_OBJECT(iapp));
-
 
 	for (entries = entry_head; entries != NULL; entries = g_list_next(entries)) {
 		IndicatorObjectEntry * entry = (IndicatorObjectEntry *)entries->data;
@@ -1280,17 +1265,19 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		iapp->sig_a11y_update = 0;
 	}
 
-	/* Default App is NULL, let's see if it needs replacement */
-	iapp->default_app = NULL;
+	return;
+}
 
-	/* Update the active window pointer -- may be NULL */
-	switch_active_window(iapp, active_window);
+/* Put back some entries to ensure we've got something to click on!  This might
+   be the stubs in some cases */
+static void
+add_default_app_entries (IndicatorAppmenu * iapp)
+{
+	GList * entry_head = NULL;
+	GList * entries = NULL;
 
 	/* If we're putting up a new window, let's do that now. */
-	if (newdef != NULL) {
-		/* Switch */
-		iapp->default_app = newdef;
-
+	if (iapp->default_app != NULL) {
 		/* Connect signals */
 		iapp->sig_entry_added =   g_signal_connect(G_OBJECT(iapp->default_app),
 		                                           WINDOW_MENUS_SIGNAL_ENTRY_ADDED,
@@ -1348,6 +1335,45 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		                       window_menus_get_status (iapp->default_app),
 		                       iapp);
 	}
+
+	return;
+}
+
+/* Switch applications, remove all the entires for the previous
+   one and add them for the new application */
+static void
+switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * active_window)
+{
+	if (iapp->default_app == newdef && iapp->default_app != NULL) {
+		/* We've got an app with menus and it hasn't changed. */
+
+		/* Keep active window up-to-date, though we're probably not
+		   using it much. */
+		switch_active_window(iapp, active_window);
+		return;
+	}
+
+	if (iapp->default_app == NULL && iapp->active_window == active_window && newdef == NULL) {
+		/* There's no application menus, but the active window hasn't
+		   changed.  So there's no change. */
+		return;
+	}
+
+	remove_current_entries(iapp);
+
+	/* Default App is NULL, let's see if it needs replacement */
+	iapp->default_app = NULL;
+
+	/* Update the active window pointer -- may be NULL */
+	switch_active_window(iapp, active_window);
+
+	/* If we're putting up a new window, let's do that now. */
+	if (newdef != NULL) {
+		/* Switch */
+		iapp->default_app = newdef;
+	}
+
+	add_default_app_entries(iapp);
 
 	return;
 }
