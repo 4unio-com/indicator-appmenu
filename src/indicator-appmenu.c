@@ -1011,6 +1011,11 @@ get_entries (IndicatorObject * io)
 	g_return_val_if_fail(IS_INDICATOR_APPMENU(io), NULL);
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(io);
 
+	/* If we're in single menu mode, just send that */
+	if (iapp->menu_mode == MENU_MODE_SINGLE) {
+		return g_list_append(NULL, &(iapp->single_menu));
+	}
+
 	/* If we have a focused app with menus, use it's windows */
 	if (iapp->default_app != NULL) {
 		return window_menus_get_entries(iapp->default_app);
