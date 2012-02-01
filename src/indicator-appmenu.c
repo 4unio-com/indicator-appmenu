@@ -1087,26 +1087,36 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 {
 	guint count = 0;
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(io);
+
+	GArray * array = NULL;
+
 	if (iapp->default_app != NULL) {
 		/* Find the location in the app */
-		count = window_menus_get_location(iapp->default_app, entry);
+		array = iapp->application_menus;
 	} else if (iapp->active_window != NULL) {
-		/* Find the location in the window menus */
-		for (count = 0; count < iapp->window_menus->len; count++) {
-			if (entry == &g_array_index(iapp->window_menus, IndicatorObjectEntry, count)) {
-				break;
-			}
-		}
-		if (count == iapp->window_menus->len) {
-			g_warning("Unable to find entry in default window menus");
-			count = 0;
-		}
+		array = iapp->window_menus;
 	} else {
 		/* Find the location in the desktop menu */
 		if (iapp->desktop_menu != NULL) {
-			count = window_menus_get_location(iapp->desktop_menu, entry);
+			array = iapp->application_menus;
 		}
 	}
+
+	/* Find the location in the array */
+	if (array != NULL) {
+		for (count = 0; count < array->len; count++) {
+			if (entry == &g_array_index(array, IndicatorObjectEntry, count)) {
+				break;
+			}
+		}
+		if (count == array->len) {
+			g_warning("Unable to find entry in exported menus");
+			count = 0;
+		}
+	} else {
+		g_warning("Looking for menus and we're not exporting any?");
+	}
+
 	return count;
 }
 
