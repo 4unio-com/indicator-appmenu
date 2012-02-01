@@ -1004,6 +1004,16 @@ show_menu_stubs (BamfApplication * app)
 	return TRUE;
 }
 
+/* Convert a GtkMenu into a set of entries so that everything is
+   happy happy */
+static GList *
+menu_to_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
+{
+
+
+	return NULL;
+}
+
 /* Get the current set of entries */
 static GList *
 get_entries (IndicatorObject * io)
@@ -1018,7 +1028,7 @@ get_entries (IndicatorObject * io)
 
 	/* If we have a focused app with menus, use it's windows */
 	if (iapp->default_app != NULL) {
-		return window_menus_get_entries(iapp->default_app);
+		return menu_to_entries(iapp, window_menus_get_menu(iapp->default_app));
 	}
 
 	/* Else, let's go with desktop windows if there isn't a focused window */
@@ -1026,7 +1036,7 @@ get_entries (IndicatorObject * io)
 		if (iapp->desktop_menu == NULL) {
 			return NULL;
 		} else {
-			return window_menus_get_entries(iapp->desktop_menu);
+			return menu_to_entries(iapp, window_menus_get_menu(iapp->desktop_menu));
 		}
 	}
 
@@ -1914,7 +1924,7 @@ dump_menu (IndicatorAppmenuDebug * iappd, guint windowid, GError ** error)
 	}
 
 	GArray * strings = g_array_new(TRUE, FALSE, sizeof(gchar *));
-	GList * entries = window_menus_get_entries(wm);
+	GList * entries = menu_to_entries(iapp, window_menus_get_menu(wm));
 	GList * entry;
 
 	gchar * temp = g_strdup("{");
