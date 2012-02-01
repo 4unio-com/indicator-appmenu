@@ -1336,9 +1336,14 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			continue;
 		}
 
-		GtkLabel * label = mi_find_label(mi);
-		GtkIcon * icon = mi_find_icon(mi);
-		GtkMenu * sub = mi_find_menu(mi);
+		GtkLabel * label = NULL;
+		GtkImage * icon = NULL;
+		GtkMenu * sub = NULL;
+		if (GTK_IS_MENU_ITEM(mi)) {
+			label = mi_find_label(GTK_WIDGET(mi));
+			icon = mi_find_icon(GTK_WIDGET(mi));
+			sub = mi_find_menu(mi);
+		}
 
 		IndicatorObjectEntry * entry = &g_array_get_index(iapp->application_menus, IndicatorObjectEntry, i);
 
