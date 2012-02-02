@@ -102,20 +102,6 @@ window_menus_class_init (WindowMenusClass *klass)
 	object_class->dispose = window_menus_dispose;
 
 	/* Signals */
-	signals[ENTRY_ADDED] =  g_signal_new(WINDOW_MENUS_SIGNAL_ENTRY_ADDED,
-	                                      G_TYPE_FROM_CLASS(klass),
-	                                      G_SIGNAL_RUN_LAST,
-	                                      G_STRUCT_OFFSET (WindowMenusClass, entry_added),
-	                                      NULL, NULL,
-	                                      g_cclosure_marshal_VOID__POINTER,
-	                                      G_TYPE_NONE, 1, G_TYPE_POINTER);
-	signals[ENTRY_REMOVED] =  g_signal_new(WINDOW_MENUS_SIGNAL_ENTRY_REMOVED,
-	                                      G_TYPE_FROM_CLASS(klass),
-	                                      G_SIGNAL_RUN_LAST,
-	                                      G_STRUCT_OFFSET (WindowMenusClass, entry_removed),
-	                                      NULL, NULL,
-	                                      g_cclosure_marshal_VOID__POINTER,
-	                                      G_TYPE_NONE, 1, G_TYPE_POINTER);
 	signals[ERROR_STATE] =   g_signal_new(WINDOW_MENUS_SIGNAL_ERROR_STATE,
 	                                      G_TYPE_FROM_CLASS(klass),
 	                                      G_SIGNAL_RUN_LAST,
