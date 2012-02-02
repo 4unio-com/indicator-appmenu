@@ -37,6 +37,7 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 typedef struct _WindowMenusPrivate WindowMenusPrivate;
 struct _WindowMenusPrivate {
 	guint windowid;
+	DbusmenuGtkMenu * menu;
 	DbusmenuGtkClient * client;
 	DbusmenuMenuitem * root;
 	GCancellable * props_cancel;
@@ -154,6 +155,7 @@ window_menus_init (WindowMenus *self)
 {
 	WindowMenusPrivate * priv = WINDOW_MENUS_GET_PRIVATE(self);
 
+	priv->menu = NULL;
 	priv->client = NULL;
 	priv->props_cancel = NULL;
 	priv->props = NULL;
@@ -235,13 +237,15 @@ window_menus_dispose (GObject *object)
 		g_warn_if_fail(priv->root == NULL);
 	}
 
-	if (priv->client != NULL) {
-		g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(root_changed),    object);
-		g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(event_status),    object);
-		g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(item_activate),   object);
-		g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(status_changed),  object);
+	if (priv->menu != NULL) {
+		if (priv->client != NULL) {
+			g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(root_changed),    object);
+			g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(event_status),    object);
+			g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(item_activate),   object);
+			g_signal_handlers_disconnect_by_func(G_OBJECT(priv->client), G_CALLBACK(status_changed),  object);
+		}
 
-		g_object_unref(G_OBJECT(priv->client));
+		g_clear_object(&priv->menu);
 		priv->client = NULL;
 	}
 	
@@ -430,7 +434,8 @@ window_menus_new (const guint windowid, const gchar * dbus_addr, const gchar * d
 	                         props_cb,
 	                         newmenu);
 
-	priv->client = dbusmenu_gtkclient_new((gchar *)dbus_addr, (gchar *)dbus_object);
+	priv->menu = dbusmenu_gtkmenu_new((gchar *)dbus_addr, (gchar *)dbus_object);
+	priv->client = dbusmenu_gtkmenu_get_client(priv->menu);
 	GtkAccelGroup * agroup = gtk_accel_group_new();
 	dbusmenu_gtkclient_set_accel_group(priv->client, agroup);
 	g_object_unref(agroup);
