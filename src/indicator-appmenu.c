@@ -247,6 +247,9 @@ indicator_appmenu_class_init (IndicatorAppmenuClass *klass)
 	ioclass->get_location = get_location;
 	ioclass->entry_activate_window = entry_activate_window;
 
+	ioclass->entry_being_removed = NULL;
+	ioclass->entry_was_added = NULL;
+
 	/* Setting up the DBus interfaces */
 	if (node_info == NULL) {
 		GError * error = NULL;
