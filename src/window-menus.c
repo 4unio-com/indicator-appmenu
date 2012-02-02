@@ -498,3 +498,14 @@ window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, gui
 	dbusmenu_menuitem_send_about_to_show(wme->mi, NULL, NULL);
 	return;
 }
+
+/* Return our menu (which is actually a DbusmenuGtkMenu) to the caller
+   as its superclass, a GtkMenu */
+GtkMenu *
+window_menus_get_menu (WindowMenus * wm)
+{
+	g_return_val_if_fail(IS_WINDOW_MENUS(wm), NULL);
+	WindowMenusPrivate * priv = WINDOW_MENUS_GET_PRIVATE(wm);
+
+	return GTK_MENU(priv->menu);
+}
