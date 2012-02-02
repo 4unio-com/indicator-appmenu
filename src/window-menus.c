@@ -46,15 +46,6 @@ struct _WindowMenusPrivate {
 	guint   retry_timer;
 };
 
-typedef struct _WMEntry WMEntry;
-struct _WMEntry {
-	IndicatorObjectEntry ioentry;
-	gboolean disabled;
-	gboolean hidden;
-	DbusmenuMenuitem * mi;
-	WindowMenus * wm;
-};
-
 #define WINDOW_MENUS_GET_PRIVATE(o) \
 (G_TYPE_INSTANCE_GET_PRIVATE ((o), WINDOW_MENUS_TYPE, WindowMenusPrivate))
 
@@ -460,43 +451,12 @@ window_menus_get_error_state (WindowMenus * wm)
 	return priv->error_state;
 }
 
-/* Regain whether we're supposed to be hidden or disabled, we
-   want to keep that if that's the case, otherwise bring back
-   to the base state */
-void
-window_menus_entry_restore (WindowMenus * wm, IndicatorObjectEntry * entry)
-{
-	WMEntry * wmentry = (WMEntry *)entry;
-
-	if (entry->label != NULL) {
-		gtk_widget_set_sensitive(GTK_WIDGET(entry->label), !wmentry->disabled);
-		if (wmentry->hidden) {
-			gtk_widget_hide(GTK_WIDGET(entry->label));
-		} else {
-			gtk_widget_show(GTK_WIDGET(entry->label));
-		}
-	}
-
-	if (entry->image != NULL) {
-		gtk_widget_set_sensitive(GTK_WIDGET(entry->image), !wmentry->disabled);
-		if (wmentry->hidden) {
-			gtk_widget_hide(GTK_WIDGET(entry->image));
-		} else {
-			gtk_widget_show(GTK_WIDGET(entry->image));
-		}
-	}
-
-	return;
-}
-
 /* Signaled when the menu item is activated on the panel so we
    can pass it down the stack. */
 void
 window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, guint timestamp)
 {
-	WMEntry * wme = (WMEntry *)entry;
-	dbusmenu_menuitem_send_about_to_show(wme->mi, NULL, NULL);
-	return;
+
 }
 
 /* Return our menu (which is actually a DbusmenuGtkMenu) to the caller
