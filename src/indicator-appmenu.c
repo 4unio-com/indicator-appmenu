@@ -1367,7 +1367,8 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 
 		g_array_insert_val(iapp->application_menus, i, newentry);
 		/* TODO: Check visibility */
-		/* TODO: Signal added */
+		entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
 
 		child = g_list_next(child);
 	}
@@ -1375,7 +1376,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 	while (i < iapp->application_menus->len) {
 		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 
-		/* TODO: Signal removed */
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
 		g_array_remove_index(iapp->application_menus, i);
 	}
 
@@ -1411,7 +1412,8 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 
 		g_array_insert_val(iapp->application_menus, i, newentry);
 		/* TODO: Check visibility */
-		/* TODO: Signal added */
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
 
 		child = g_list_next(child);
 	}
