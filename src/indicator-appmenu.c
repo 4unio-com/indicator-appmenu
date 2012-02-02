@@ -95,8 +95,6 @@ struct _IndicatorAppmenu {
 	BamfWindow * active_window;
 	ActiveStubsState active_stubs;
 
-	gulong sig_entry_added;
-	gulong sig_entry_removed;
 	gulong sig_status_changed;
 	gulong sig_show_menu;
 	gulong sig_a11y_update;
@@ -175,12 +173,6 @@ static void new_window                                               (BamfMatche
                                                                       gpointer user_data);
 static void old_window                                               (BamfMatcher * matcher,
                                                                       BamfView * view,
-                                                                      gpointer user_data);
-static void window_entry_added                                       (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
-                                                                      gpointer user_data);
-static void window_entry_removed                                     (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
                                                                       gpointer user_data);
 static void window_status_changed                                    (WindowMenus * mw,
                                                                       DbusmenuStatus status,
@@ -1427,14 +1419,6 @@ static void
 disconnect_current_signals (IndicatorAppmenu * iapp)
 {
 	/* Disconnect signals */
-	if (iapp->sig_entry_added != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_added);
-		iapp->sig_entry_added = 0;
-	}
-	if (iapp->sig_entry_removed != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_removed);
-		iapp->sig_entry_removed = 0;
-	}
 	if (iapp->sig_status_changed != 0) {
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_status_changed);
 		iapp->sig_status_changed = 0;
@@ -1459,14 +1443,6 @@ reconnect_signals (IndicatorAppmenu * iapp)
 	/* If we're putting up a new window, let's do that now. */
 	if (iapp->default_app != NULL) {
 		/* Connect signals */
-		iapp->sig_entry_added =   g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_ENTRY_ADDED,
-		                                           G_CALLBACK(window_entry_added),
-		                                           iapp);
-		iapp->sig_entry_removed = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_ENTRY_REMOVED,
-		                                           G_CALLBACK(window_entry_removed),
-		                                           iapp);
 		iapp->sig_status_changed = g_signal_connect(G_OBJECT(iapp->default_app),
 		                                           WINDOW_MENUS_SIGNAL_STATUS_CHANGED,
 		                                           G_CALLBACK(window_status_changed),
@@ -1799,22 +1775,6 @@ bus_method_call (GDBusConnection * connection, const gchar * sender,
 	} else {
 		g_dbus_method_invocation_return_value(invocation, retval);
 	}
-	return;
-}
-
-/* Pass up the entry added event */
-static void
-window_entry_added (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
-	return;
-}
-
-/* Pass up the entry removed event */
-static void
-window_entry_removed (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
 	return;
 }
 
