@@ -1156,7 +1156,7 @@ static void
 sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 {
 	GList * children = NULL;
-	
+
 	if (GTK_IS_CONTAINER(menu)) {
 		children = gtk_container_get_children(GTK_CONTAINER(menu));
 	}
@@ -1211,12 +1211,16 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
 
 		child = g_list_next(child);
+		/* Go to the entry that is after the one we
+		   just inserted */
+		i++;
 	}
 
 	while (i < iapp->application_menus->len) {
 		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 
 		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
+
 		g_array_remove_index(iapp->application_menus, i);
 	}
 
