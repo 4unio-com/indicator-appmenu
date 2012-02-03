@@ -563,6 +563,8 @@ window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, gui
 			mi = DBUSMENU_MENUITEM(child->data);
 			break;
 		}
+
+		child = g_list_next(child);
 	}
 
 	/* Send About To Show to the menu item */
