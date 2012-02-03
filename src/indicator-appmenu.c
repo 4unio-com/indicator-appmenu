@@ -1154,7 +1154,7 @@ mi_find_menu (GtkMenuItem * mi)
 /* Add an entry to the array with either the items that are in the
    parameter list, or if they're undefined then we need to find
    them here. */
-static void
+static gboolean
 add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
 {
 	if (label == NULL && icon == NULL && sub == NULL) {
@@ -1178,7 +1178,7 @@ add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, 
 	IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
 
-	return;
+	return TRUE;
 }
 
 /* Take a GtkMenu and make it into our entries */
@@ -1225,12 +1225,13 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			continue;
 		}
 
-		add_entry(iapp, mi, i, label, icon, sub);
+		if (add_entry(iapp, mi, i, label, icon, sub)) {
+			/* Go to the entry that is after the one we
+			   just inserted */
+			i++;
+		}
 
 		child = g_list_next(child);
-		/* Go to the entry that is after the one we
-		   just inserted */
-		i++;
 	}
 
 	while (i < iapp->application_menus->len) {
@@ -1251,7 +1252,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			child = g_list_next(child);
 		}
 
-		add_entry(iapp, mi, i, NULL, NULL, NULL);
+		add_entry(iapp, mi, iapp->application_menus->len, NULL, NULL, NULL);
 
 		child = g_list_next(child);
 	}
