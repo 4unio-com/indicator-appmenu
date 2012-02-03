@@ -233,8 +233,6 @@ event_status (DbusmenuClient * client, DbusmenuMenuitem * mi, gchar * event, GVa
 			child = g_list_next(child);
 		}
 
-		g_list_free(children);
-
 		if (priv->retry_timer != 0) {
 			g_source_remove(priv->retry_timer);
 			priv->retry_timer = 0;
@@ -566,7 +564,6 @@ window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, gui
 			break;
 		}
 	}
-	g_list_free(children);
 
 	/* Send About To Show to the menu item */
 	if (mi != NULL) {
