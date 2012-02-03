@@ -173,7 +173,7 @@ static void window_status_changed                                    (WindowMenu
                                                                       DbusmenuStatus status,
                                                                       IndicatorAppmenu * iapp);
 static void window_show_menu                                         (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
+                                                                      GtkMenuItem * item,
                                                                       guint timestamp,
                                                                       gpointer user_data);
 static void window_a11y_update                                       (WindowMenus * mw,
@@ -1652,9 +1652,29 @@ window_status_changed (WindowMenus * mw, DbusmenuStatus status, IndicatorAppmenu
 
 /* Pass up the show menu event */
 static void
-window_show_menu (WindowMenus * mw, IndicatorObjectEntry * entry, guint timestamp, gpointer user_data)
+window_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointer user_data)
 {
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+	if (item == NULL) {
+		g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, NULL, timestamp);
+		return;
+	}
+
+	GtkMenu * sub = GTK_MENU(gtk_menu_item_get_submenu(item));
+	if (sub == NULL) {
+		return;
+	}
+
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	int i;
+	for (i = 0; i < iapp->application_menus->len; i++) {
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		if (entry->menu == sub) {
+			g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+			break;
+		}
+	}
+
 	return;
 }
 

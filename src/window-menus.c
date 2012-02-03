@@ -106,8 +106,8 @@ window_menus_class_init (WindowMenusClass *klass)
 	                                      G_SIGNAL_RUN_LAST,
 	                                      G_STRUCT_OFFSET (WindowMenusClass, show_menu),
 	                                      NULL, NULL,
-	                                      _indicator_appmenu_marshal_VOID__POINTER_UINT,
-	                                      G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_UINT, G_TYPE_NONE);
+	                                      _indicator_appmenu_marshal_VOID__OBJECT_UINT,
+	                                      G_TYPE_NONE, 2, GTK_TYPE_MENU_ITEM, G_TYPE_UINT, G_TYPE_NONE);
 	signals[A11Y_UPDATE] =   g_signal_new(WINDOW_MENUS_SIGNAL_A11Y_UPDATE,
 	                                      G_TYPE_FROM_CLASS(klass),
 	                                      G_SIGNAL_RUN_LAST,
@@ -286,14 +286,11 @@ item_activate (DbusmenuClient * client, DbusmenuMenuitem * item, guint timestamp
 		return;
 	}
 
-	/* TODO: 
-	IndicatorObjectEntry * entry = get_entry(WINDOW_MENUS(user_data), item, NULL);
-	if (entry == NULL) {
-		return;
-	}
+	GtkMenuItem * gmi = dbusmenu_gtkclient_menuitem_get(priv->client, item);
 
-	g_signal_emit(G_OBJECT(user_data), signals[SHOW_MENU], 0, entry, timestamp, TRUE);
-	*/
+	if (gmi != NULL) {
+		g_signal_emit(G_OBJECT(user_data), signals[SHOW_MENU], 0, gmi, timestamp, TRUE);
+	}
 
 	return;
 }

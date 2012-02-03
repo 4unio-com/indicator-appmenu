@@ -52,7 +52,7 @@ struct _WindowMenusClass {
 	void (*error_state)   (WindowMenus * wm, gboolean state, gpointer user_data);
 	void (*status_changed) (WindowMenus * wm, DbusmenuStatus status, gpointer user_data);
 
-	void (*show_menu)     (WindowMenus * wm, IndicatorObjectEntry * entry, guint timestamp, gpointer user_data);
+	void (*show_menu)     (WindowMenus * wm, GtkMenuItem * item, guint timestamp, gpointer user_data);
 	void (*a11y_update)   (WindowMenus * wm, IndicatorObjectEntry * entry, gpointer user_data);
 };
 
