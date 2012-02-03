@@ -297,6 +297,12 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->single_menu.accessible_desc = NULL;
 	self->single_menu.name_hint = "application-menus";
 
+	/* Setup the entries for applications */
+	self->application_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 10); /* 10 entries should be enough for anyone */
+
+	/* Setup the entries for the fallbacks */
+	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
+
 	/* Getting our settings */
 	if (settings_schema_exists("com.canonical.indicator.appmenu")) {
 		self->settings = g_settings_new("com.canonical.indicator.appmenu");
@@ -304,12 +310,6 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 		g_signal_connect(G_OBJECT(self->settings), "changed::menu-mode", G_CALLBACK(menu_mode_changed), self);
 		menu_mode_changed(self->settings, "menu-mode", self);
 	}
-
-	/* Setup the entries for applications */
-	self->application_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 10); /* 10 entries should be enough for anyone */
-
-	/* Setup the entries for the fallbacks */
-	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
 
 	/* Setup the cache of windows with possible desktop entries */
 	self->desktop_windows = g_hash_table_new(g_direct_hash, g_direct_equal);
