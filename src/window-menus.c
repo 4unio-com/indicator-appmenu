@@ -310,6 +310,38 @@ window_menus_get_status (WindowMenus * wm)
 	return dbusmenu_client_get_status (DBUSMENU_CLIENT (priv->client));
 }
 
+/* Menuitem visibility changes */
+static void
+item_visibility_cb (GObject * obj, GParamSpec * pspec, gpointer user_data)
+{
+	g_signal_emit(G_OBJECT(user_data), signals[MENU_CHANGED], TRUE);
+	return;
+}
+
+/* If an item gets inserted let's signal a menu change and make sure
+   we can get visiblity changes on that item */
+static void
+item_inserted_cb (GtkContainer *menu,
+                  GtkWidget    *widget,
+#ifdef HAVE_GTK3
+                  gint          position,
+#endif
+                  gpointer      user_data)
+{
+	g_signal_connect(G_OBJECT(widget), "notify::visible", G_CALLBACK(item_visibility_cb), user_data);
+	g_signal_emit(G_OBJECT(user_data), signals[MENU_CHANGED], TRUE);
+	return;
+}
+
+/* If an item is removed we need to signal that them menu has been
+   updated */
+static void
+item_removed_cb (GtkContainer *menu, GtkWidget *widget, gpointer user_data)
+{
+	g_signal_emit(G_OBJECT(user_data), signals[MENU_CHANGED], TRUE);
+	return;
+}
+
 /* Build a new window menus object and attach to the signals to build
    up the representative menu. */
 WindowMenus *
@@ -350,6 +382,19 @@ window_menus_new (const guint windowid, const gchar * dbus_addr, const gchar * d
 	g_signal_connect(G_OBJECT(priv->client), DBUSMENU_CLIENT_SIGNAL_ITEM_ACTIVATE, G_CALLBACK(item_activate), newmenu);
 	g_signal_connect(G_OBJECT(priv->client), "notify::" DBUSMENU_CLIENT_PROP_STATUS, G_CALLBACK(status_changed), newmenu);
 
+	g_signal_connect (G_OBJECT (priv->menu),
+#ifdef HAVE_GTK3
+	                  "insert",
+#else
+	                  "child-added",
+#endif
+	                  G_CALLBACK (item_inserted_cb),
+	                  newmenu); 
+	g_signal_connect (G_OBJECT (priv->menu),
+	                  "remove",
+	                  G_CALLBACK (item_removed_cb),
+	                  newmenu); 
+
 	DbusmenuMenuitem * root = dbusmenu_client_get_root(DBUSMENU_CLIENT(priv->client));
 	if (root != NULL) {
 		root_changed(DBUSMENU_CLIENT(priv->client), root, newmenu);
@@ -357,6 +402,7 @@ window_menus_new (const guint windowid, const gchar * dbus_addr, const gchar * d
 
 	return newmenu;
 }
+
 
 /* Callback from trying to create the proxy for the service, this
    could include starting the service. */
