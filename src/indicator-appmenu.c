@@ -1157,6 +1157,10 @@ mi_find_menu (GtkMenuItem * mi)
 static gboolean
 add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
 {
+	if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
+		return FALSE;
+	}
+
 	if (label == NULL && icon == NULL && sub == NULL) {
 		label = mi_find_label(GTK_WIDGET(mi));
 		icon = mi_find_icon(GTK_WIDGET(mi));
@@ -1174,7 +1178,6 @@ add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, 
 	};
 
 	g_array_insert_val(iapp->application_menus, i, newentry);
-	/* TODO: Check visibility */
 	IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
 
