@@ -210,6 +210,9 @@ static void source_unregister                                        (gpointer u
 static GVariant * unregister_window                                  (IndicatorAppmenu * iapp,
                                                                       guint windowid);
 static gboolean settings_schema_exists                               (const gchar * schema);
+GtkMenu * get_current_menu                                           (IndicatorAppmenu * iapp);
+static void sync_menu_to_app_entries                                 (IndicatorAppmenu * iapp,
+                                                                      GtkMenu * menu);
 
 /* Unique error codes for debug interface */
 enum {
@@ -743,20 +746,25 @@ menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
 	iapp->menu_mode = newmode;
 	g_debug("Menu mode changed to: %d", iapp->menu_mode);
 
-	/* TODO: Deal with implications of a change */
-
 	/* If we're going to single menus make sure we have the objects
 	   we need built */
 	if (iapp->menu_mode == MENU_MODE_SINGLE) {
-		if (iapp->single_menu.menu == NULL) {
-			iapp->single_menu.menu = GTK_MENU(gtk_menu_new());
-			g_object_ref_sink(iapp->single_menu.menu);
-		}
-
 		if (iapp->single_menu.image == NULL) {
 			iapp->single_menu.image = indicator_image_helper("indicator-appmenu-menu-panel");
 			g_object_ref_sink(iapp->single_menu.image);
 		}
+
+		sync_menu_to_app_entries(iapp, NULL);
+
+		iapp->single_menu.menu = get_current_menu(iapp);
+
+		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), iapp->single_menu.menu != NULL);
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, &(iapp->single_menu));
+	}
+
+	if (iapp->menu_mode == MENU_MODE_SEVERAL) {
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, &(iapp->single_menu));
+		sync_menu_to_app_entries(iapp, get_current_menu(iapp));
 	}
 
 	return;
@@ -1330,6 +1338,24 @@ reconnect_signals (IndicatorAppmenu * iapp)
 	return;
 }
 
+/* Small little function to go through the logic of what
+   menus we should be using. */
+GtkMenu *
+get_current_menu (IndicatorAppmenu * iapp)
+{
+	GtkMenu * menus = NULL;
+
+	if (iapp->default_app != NULL) {
+		menus = window_menus_get_menu(iapp->default_app);
+	}
+
+	if (menus == NULL && iapp->active_window == NULL) {
+		menus = window_menus_get_menu(iapp->desktop_menu);
+	}
+
+	return menus;
+}
+
 /* Switch applications, remove all the entires for the previous
    one and add them for the new application */
 static void
@@ -1364,20 +1390,17 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		iapp->default_app = newdef;
 	}
 
-	GtkMenu * menus = NULL;
+	GtkMenu * menus = get_current_menu(iapp);
 
-	if (iapp->default_app != NULL) {
-		menus = window_menus_get_menu(iapp->default_app);
+	if (iapp->menu_mode == MENU_MODE_SEVERAL) {
+		sync_menu_to_app_entries(iapp, menus);	
+		reconnect_signals(iapp);
+	} else {
+		sync_menu_to_app_entries(iapp, NULL);	
+		iapp->single_menu.menu = menus;
+
+		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), menus != NULL);
 	}
-
-	if (menus == NULL && iapp->active_window == NULL) {
-		menus = window_menus_get_menu(iapp->desktop_menu);
-	}
-
-	sync_menu_to_app_entries(iapp, menus);	
-	reconnect_signals(iapp);
-
-	/* TODO: Send stubs if appropriate */
 
 	return;
 }
