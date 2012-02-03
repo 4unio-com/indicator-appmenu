@@ -1209,6 +1209,12 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			continue;
 		}
 
+		if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
+			/* If it's not visible we want to skip it */
+			child = g_list_next(child);
+			continue;
+		}
+
 		GtkLabel * label = NULL;
 		GtkImage * icon = NULL;
 		GtkMenu * sub = NULL;
