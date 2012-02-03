@@ -452,11 +452,68 @@ window_menus_get_error_state (WindowMenus * wm)
 }
 
 /* Signaled when the menu item is activated on the panel so we
-   can pass it down the stack. */
+   can pass it down the stack.
+
+   Unfortunately, that causes is to look through the levels of
+   indirection that we have here.  The first is the Entry to the
+   GtkMenuItem and then we have to translate that into a
+   DbusmenuMenuitem to send the actual signal.
+*/
 void
 window_menus_entry_activate (WindowMenus * wm, IndicatorObjectEntry * entry, guint timestamp)
 {
+	g_return_if_fail(IS_WINDOW_MENUS(wm));
+	g_return_if_fail(entry != NULL);
+	WindowMenusPrivate * priv = WINDOW_MENUS_GET_PRIVATE(wm);
 
+	/* If the entry doesn't have a menu, it doesn't make sense to
+	   about_to_show it.  So let's just stop things here */
+	if (entry->menu == NULL) {
+		return;
+	}
+
+	/* Look to find the GTK Menu Item we need */
+	GtkMenuItem * gmi = NULL;
+	GList * children = gtk_container_get_children(GTK_CONTAINER(priv->menu));
+	GList * child = children;
+
+	while (child != NULL) {
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			GtkMenu * sub = GTK_MENU(gtk_menu_item_get_submenu(GTK_MENU_ITEM(child->data)));
+
+			if (sub == entry->menu) {
+				gmi = GTK_MENU_ITEM(child->data);
+				break;
+			}
+		}
+	
+		child = g_list_next(child);
+	}
+	g_list_free(children);
+
+	/* Find the DBusmenu menuitem we need (if we got one before) */
+	DbusmenuMenuitem * mi = NULL;
+	children = dbusmenu_menuitem_get_children(priv->root);
+	child = children;
+
+	while (child != NULL && gmi != NULL) {
+		GtkMenuItem * lgmi = NULL;
+
+		if (DBUSMENU_IS_MENUITEM(child->data)) {
+			lgmi = dbusmenu_gtkclient_menuitem_get(priv->client, DBUSMENU_MENUITEM(child->data));
+		}
+
+		if (lgmi == gmi) {
+			mi = DBUSMENU_MENUITEM(child->data);
+			break;
+		}
+	}
+	g_list_free(children);
+
+	/* Send About To Show to the menu item */
+	if (mi != NULL) {
+		dbusmenu_menuitem_send_about_to_show(mi, NULL, NULL);
+	}
 }
 
 /* Return our menu (which is actually a DbusmenuGtkMenu) to the caller
