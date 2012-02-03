@@ -1260,6 +1260,8 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 		child = g_list_next(child);
 	}
 
+	g_list_free(children);
+
 	return;
 }
 
