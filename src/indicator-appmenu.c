@@ -753,11 +753,13 @@ menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
 		if (iapp->single_menu.image == NULL) {
 			iapp->single_menu.image = indicator_image_helper("indicator-appmenu-menu-panel");
 			g_object_ref_sink(iapp->single_menu.image);
+			gtk_widget_show(GTK_WIDGET(iapp->single_menu.image));
 		}
 #else
 		if (iapp->single_menu.label == NULL) {
 			iapp->single_menu.label = GTK_LABEL(gtk_label_new("Menus"));
 			g_object_ref_sink(iapp->single_menu.label);
+			gtk_widget_show(GTK_WIDGET(iapp->single_menu.label));
 		}
 #endif
 
