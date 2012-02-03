@@ -155,9 +155,8 @@ static void build_window_menus                                       (IndicatorA
 static GList * get_entries                                           (IndicatorObject * io);
 static guint get_location                                            (IndicatorObject * io,
                                                                       IndicatorObjectEntry * entry);
-static void entry_activate_window                                    (IndicatorObject * io,
+static void entry_activate                                           (IndicatorObject * io,
                                                                       IndicatorObjectEntry * entry,
-                                                                      guint windowid,
                                                                       guint timestamp);
 static void entry_activate_window                                    (IndicatorObject * io,
                                                                       IndicatorObjectEntry * entry,
@@ -987,7 +986,7 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 
 /* Responds to a menuitem being activated on the panel. */
 static void
-entry_activate_window (IndicatorObject * io, IndicatorObjectEntry * entry, guint windowid, guint timestamp)
+entry_activate (IndicatorObject * io, IndicatorObjectEntry * entry, guint timestamp)
 {
 	return entry_activate_window(io, entry, 0, timestamp);
 }
