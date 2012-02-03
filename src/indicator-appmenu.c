@@ -1151,6 +1151,36 @@ mi_find_menu (GtkMenuItem * mi)
 	}
 }
 
+/* Add an entry to the array with either the items that are in the
+   parameter list, or if they're undefined then we need to find
+   them here. */
+static void
+add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
+{
+	if (label == NULL && icon == NULL && sub == NULL) {
+		label = mi_find_label(GTK_WIDGET(mi));
+		icon = mi_find_icon(GTK_WIDGET(mi));
+		sub = mi_find_menu(mi);
+	}
+
+	/* We need to build a new entry to handle the menuitem */
+	IndicatorObjectEntry newentry = {
+		parent_object: INDICATOR_OBJECT(iapp),
+		label: label,
+		image: icon,
+		menu: sub,
+		accessible_desc: NULL,
+		name_hint: "application-menus"
+	};
+
+	g_array_insert_val(iapp->application_menus, i, newentry);
+	/* TODO: Check visibility */
+	IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
+
+	return;
+}
+
 /* Take a GtkMenu and make it into our entries */
 static void
 sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
@@ -1195,20 +1225,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			continue;
 		}
 
-		/* We need to build a new entry to handle the menuitem */
-		IndicatorObjectEntry newentry = {
-			parent_object: INDICATOR_OBJECT(iapp),
-			label: label,
-			image: icon,
-			menu: sub,
-			accessible_desc: NULL, /* TODO: FIX THIS */
-			name_hint: "application-menus"
-		};
-
-		g_array_insert_val(iapp->application_menus, i, newentry);
-		/* TODO: Check visibility */
-		entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
-		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
+		add_entry(iapp, mi, i, label, icon, sub);
 
 		child = g_list_next(child);
 		/* Go to the entry that is after the one we
@@ -1234,30 +1251,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			child = g_list_next(child);
 		}
 
-		GtkLabel * label = NULL;
-		GtkImage * icon = NULL;
-		GtkMenu * sub = NULL;
-		if (GTK_IS_MENU_ITEM(mi)) {
-			label = mi_find_label(GTK_WIDGET(mi));
-			icon = mi_find_icon(GTK_WIDGET(mi));
-			sub = mi_find_menu(mi);
-		}
-
-
-		/* We need to build a new entry to handle the menuitem */
-		IndicatorObjectEntry newentry = {
-			parent_object: INDICATOR_OBJECT(iapp),
-			label: label,
-			image: icon,
-			menu: sub,
-			accessible_desc: NULL, /* TODO: FIX THIS */
-			name_hint: "application-menus"
-		};
-
-		g_array_insert_val(iapp->application_menus, i, newentry);
-		/* TODO: Check visibility */
-		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
-		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
+		add_entry(iapp, mi, i, NULL, NULL, NULL);
 
 		child = g_list_next(child);
 	}
