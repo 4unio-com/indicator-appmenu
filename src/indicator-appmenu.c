@@ -176,9 +176,6 @@ static void window_show_menu                                         (WindowMenu
                                                                       GtkMenuItem * item,
                                                                       guint timestamp,
                                                                       gpointer user_data);
-static void window_a11y_update                                       (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
-                                                                      gpointer user_data);
 static void active_window_changed                                    (BamfMatcher * matcher,
                                                                       BamfView * oldview,
                                                                       BamfView * newview,
@@ -1306,10 +1303,6 @@ reconnect_signals (IndicatorAppmenu * iapp)
 		                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
 		                                           G_CALLBACK(window_show_menu),
 		                                           iapp);
-		iapp->sig_a11y_update   = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_A11Y_UPDATE,
-		                                           G_CALLBACK(window_a11y_update),
-		                                           iapp);
 	}
 
 		/* Set up initial state for new entries if needed */
@@ -1675,14 +1668,6 @@ window_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointe
 		}
 	}
 
-	return;
-}
-
-/* Pass up the accessible string update */
-static void
-window_a11y_update (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ACCESSIBLE_DESC_UPDATE, entry);
 	return;
 }
 
