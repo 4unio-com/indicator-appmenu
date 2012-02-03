@@ -1261,6 +1261,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			mi = GTK_MENU_ITEM(child->data);
 		} else {
 			child = g_list_next(child);
+			continue;
 		}
 
 		add_entry(iapp, mi, iapp->application_menus->len, NULL, NULL, NULL);
