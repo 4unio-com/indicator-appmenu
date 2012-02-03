@@ -40,6 +40,7 @@ G_BEGIN_DECLS
 #define WINDOW_MENUS_SIGNAL_ERROR_STATE    "error-state"
 #define WINDOW_MENUS_SIGNAL_STATUS_CHANGED "status-changed"
 #define WINDOW_MENUS_SIGNAL_SHOW_MENU      "show-menu"
+#define WINDOW_MENUS_SIGNAL_MENU_CHANGED   "menu-changed"
 
 typedef struct _WindowMenus      WindowMenus;
 typedef struct _WindowMenusClass WindowMenusClass;
@@ -51,6 +52,7 @@ struct _WindowMenusClass {
 	void (*error_state)   (WindowMenus * wm, gboolean state, gpointer user_data);
 	void (*status_changed) (WindowMenus * wm, DbusmenuStatus status, gpointer user_data);
 	void (*show_menu)     (WindowMenus * wm, GtkMenuItem * item, guint timestamp, gpointer user_data);
+	void (*menu_changed)  (WindowMenus * wm, gpointer user_data);
 };
 
 struct _WindowMenus {

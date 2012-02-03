@@ -55,6 +55,7 @@ enum {
 	ERROR_STATE,
 	STATUS_CHANGED,
 	SHOW_MENU,
+	MENU_CHANGED,
 	LAST_SIGNAL
 };
 
@@ -105,6 +106,13 @@ window_menus_class_init (WindowMenusClass *klass)
 	                                      NULL, NULL,
 	                                      _indicator_appmenu_marshal_VOID__OBJECT_UINT,
 	                                      G_TYPE_NONE, 2, GTK_TYPE_MENU_ITEM, G_TYPE_UINT, G_TYPE_NONE);
+	signals[MENU_CHANGED] =  g_signal_new(WINDOW_MENUS_SIGNAL_MENU_CHANGED,
+	                                      G_TYPE_FROM_CLASS(klass),
+	                                      G_SIGNAL_RUN_LAST,
+	                                      G_STRUCT_OFFSET (WindowMenusClass, menu_changed),
+	                                      NULL, NULL,
+	                                      _indicator_appmenu_marshal_VOID__VOID,
+	                                      G_TYPE_NONE, 0, G_TYPE_NONE);
 
 	return;
 }
