@@ -97,7 +97,7 @@ struct _IndicatorAppmenu {
 
 	gulong sig_status_changed;
 	gulong sig_show_menu;
-	gulong sig_a11y_update;
+	gulong sig_menu_changed;
 
 	GtkMenuItem * close_item;
 
@@ -175,6 +175,8 @@ static void window_status_changed                                    (WindowMenu
 static void window_show_menu                                         (WindowMenus * mw,
                                                                       GtkMenuItem * item,
                                                                       guint timestamp,
+                                                                      gpointer user_data);
+static void window_menu_changed                                      (WindowMenus * mw,
                                                                       gpointer user_data);
 static void active_window_changed                                    (BamfMatcher * matcher,
                                                                       BamfView * oldview,
@@ -1285,9 +1287,9 @@ disconnect_current_signals (IndicatorAppmenu * iapp)
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_show_menu);
 		iapp->sig_show_menu = 0;
 	}
-	if (iapp->sig_a11y_update != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_a11y_update);
-		iapp->sig_a11y_update = 0;
+	if (iapp->sig_menu_changed != 0) {
+		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_menu_changed);
+		iapp->sig_menu_changed = 0;
 	}
 
 	return;
@@ -1308,6 +1310,10 @@ reconnect_signals (IndicatorAppmenu * iapp)
 		iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
 		                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
 		                                           G_CALLBACK(window_show_menu),
+		                                           iapp);
+		iapp->sig_menu_changed  = g_signal_connect(G_OBJECT(iapp->default_app),
+		                                           WINDOW_MENUS_SIGNAL_MENU_CHANGED,
+		                                           G_CALLBACK(window_menu_changed),
 		                                           iapp);
 	}
 
@@ -1674,6 +1680,14 @@ window_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointe
 		}
 	}
 
+	return;
+}
+
+/* Pass up the show menu event */
+static void
+window_menu_changed (WindowMenus * mw, gpointer user_data)
+{
+	sync_menu_to_app_entries(INDICATOR_APPMENU(user_data), window_menus_get_menu(mw));
 	return;
 }
 
