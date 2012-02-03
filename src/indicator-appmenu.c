@@ -159,6 +159,10 @@ static void entry_activate_window                                    (IndicatorO
                                                                       IndicatorObjectEntry * entry,
                                                                       guint windowid,
                                                                       guint timestamp);
+static void entry_activate_window                                    (IndicatorObject * io,
+                                                                      IndicatorObjectEntry * entry,
+                                                                      guint windowid,
+                                                                      guint timestamp);
 static void switch_default_app                                       (IndicatorAppmenu * iapp,
                                                                       WindowMenus * newdef,
                                                                       BamfWindow * active_window);
@@ -247,6 +251,7 @@ indicator_appmenu_class_init (IndicatorAppmenuClass *klass)
 
 	ioclass->get_entries = get_entries;
 	ioclass->get_location = get_location;
+	ioclass->entry_activate = entry_activate;
 	ioclass->entry_activate_window = entry_activate_window;
 
 	ioclass->entry_being_removed = NULL;
@@ -978,6 +983,13 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 	}
 
 	return count;
+}
+
+/* Responds to a menuitem being activated on the panel. */
+static void
+entry_activate_window (IndicatorObject * io, IndicatorObjectEntry * entry, guint windowid, guint timestamp)
+{
+	return entry_activate_window(io, entry, 0, timestamp);
 }
 
 /* Responds to a menuitem being activated on the panel. */
