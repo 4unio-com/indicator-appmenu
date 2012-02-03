@@ -95,20 +95,17 @@ struct _IndicatorAppmenu {
 	BamfWindow * active_window;
 	ActiveStubsState active_stubs;
 
-	gulong sig_entry_added;
-	gulong sig_entry_removed;
 	gulong sig_status_changed;
 	gulong sig_show_menu;
-	gulong sig_a11y_update;
+	gulong sig_menu_changed;
 
 	GtkMenuItem * close_item;
 
 	GArray * window_menus;
+	GArray * application_menus;
 
 	GHashTable * desktop_windows;
 	WindowMenus * desktop_menu;
-
-	IndicatorAppmenuDebug * debug;
 
 	GDBusConnection * bus;
 	guint owner_id;
@@ -154,9 +151,6 @@ static void indicator_appmenu_class_init                             (IndicatorA
 static void indicator_appmenu_init                                   (IndicatorAppmenu *self);
 static void indicator_appmenu_dispose                                (GObject *object);
 static void indicator_appmenu_finalize                               (GObject *object);
-static void indicator_appmenu_debug_class_init                       (IndicatorAppmenuDebugClass *klass);
-static void indicator_appmenu_debug_init                             (IndicatorAppmenuDebug *self);
-static void indicator_appmenu_debug_dispose                          (GObject *object);
 static void build_window_menus                                       (IndicatorAppmenu * iapp);
 static GList * get_entries                                           (IndicatorObject * io);
 static guint get_location                                            (IndicatorObject * io,
@@ -175,21 +169,14 @@ static void new_window                                               (BamfMatche
 static void old_window                                               (BamfMatcher * matcher,
                                                                       BamfView * view,
                                                                       gpointer user_data);
-static void window_entry_added                                       (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
-                                                                      gpointer user_data);
-static void window_entry_removed                                     (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
-                                                                      gpointer user_data);
 static void window_status_changed                                    (WindowMenus * mw,
                                                                       DbusmenuStatus status,
                                                                       IndicatorAppmenu * iapp);
 static void window_show_menu                                         (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
+                                                                      GtkMenuItem * item,
                                                                       guint timestamp,
                                                                       gpointer user_data);
-static void window_a11y_update                                       (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
+static void window_menu_changed                                      (WindowMenus * mw,
                                                                       gpointer user_data);
 static void active_window_changed                                    (BamfMatcher * matcher,
                                                                       BamfView * oldview,
@@ -217,17 +204,6 @@ static void on_name_acquired                                         (GDBusConne
 static void on_name_lost                                             (GDBusConnection * connection,
                                                                       const gchar * name,
                                                                       gpointer user_data);
-static void dbg_bus_method_call                                      (GDBusConnection * connection,
-                                                                      const gchar * sender,
-                                                                      const gchar * path,
-                                                                      const gchar * interface,
-                                                                      const gchar * method,
-                                                                      GVariant * params,
-                                                                      GDBusMethodInvocation * invocation,
-                                                                      gpointer user_data);
-static void dbg_bus_get_cb                                           (GObject * object,
-                                                                      GAsyncResult * res,
-                                                                      gpointer user_data);
 static void menus_destroyed                                          (GObject * menus,
                                                                       gpointer user_data);
 static void source_unregister                                        (gpointer user_data);
@@ -253,14 +229,6 @@ static GDBusInterfaceVTable interface_table = {
        set_property:   NULL  /* No properties */
 };
 
-static GDBusNodeInfo *      dbg_node_info = NULL;
-static GDBusInterfaceInfo * dbg_interface_info = NULL;
-static GDBusInterfaceVTable dbg_interface_table = {
-       method_call:    dbg_bus_method_call,
-       get_property:   NULL, /* No properties */
-       set_property:   NULL  /* No properties */
-};
-
 G_DEFINE_TYPE (IndicatorAppmenu, indicator_appmenu, INDICATOR_OBJECT_TYPE);
 
 /* One time init */
@@ -277,6 +245,9 @@ indicator_appmenu_class_init (IndicatorAppmenuClass *klass)
 	ioclass->get_entries = get_entries;
 	ioclass->get_location = get_location;
 	ioclass->entry_activate_window = entry_activate_window;
+
+	ioclass->entry_being_removed = NULL;
+	ioclass->entry_was_added = NULL;
 
 	/* Setting up the DBus interfaces */
 	if (node_info == NULL) {
@@ -305,7 +276,6 @@ static void
 indicator_appmenu_init (IndicatorAppmenu *self)
 {
 	self->default_app = NULL;
-	self->debug = NULL;
 	self->apps = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
 	self->matcher = NULL;
 	self->active_window = NULL;
@@ -331,6 +301,9 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 		g_signal_connect(G_OBJECT(self->settings), "changed::menu-mode", G_CALLBACK(menu_mode_changed), self);
 		menu_mode_changed(self->settings, "menu-mode", self);
 	}
+
+	/* Setup the entries for applications */
+	self->application_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 10); /* 10 entries should be enough for anyone */
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
@@ -362,10 +335,6 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 
 	/* Request a name so others can find us */
 	retry_registration(self);
-
-	/* Setup debug interface */
-	self->debug = g_object_new(INDICATOR_APPMENU_DEBUG_TYPE, NULL);
-	self->debug->appmenu = self;
 
 	return;
 }
@@ -514,11 +483,6 @@ indicator_appmenu_dispose (GObject *object)
 		iapp->apps = NULL;
 	}
 
-	if (iapp->debug != NULL) {
-		g_object_unref(iapp->debug);
-		iapp->debug = NULL;
-	}
-
 	if (iapp->desktop_windows != NULL) {
 		g_hash_table_destroy(iapp->desktop_windows);
 		iapp->desktop_windows = NULL;
@@ -551,6 +515,11 @@ indicator_appmenu_finalize (GObject *object)
 {
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(object);
 
+	if (iapp->application_menus != NULL) {
+		g_array_free(iapp->application_menus, TRUE);
+		iapp->application_menus = NULL;
+	}
+
 	if (iapp->window_menus != NULL) {
 		if (iapp->window_menus->len != 0) {
 			g_warning("Window menus weren't free'd in dispose!");
@@ -560,124 +529,6 @@ indicator_appmenu_finalize (GObject *object)
 	}
 
 	G_OBJECT_CLASS (indicator_appmenu_parent_class)->finalize (object);
-	return;
-}
-
-G_DEFINE_TYPE (IndicatorAppmenuDebug, indicator_appmenu_debug, G_TYPE_OBJECT);
-
-/* One time init */
-static void
-indicator_appmenu_debug_class_init (IndicatorAppmenuDebugClass *klass)
-{
-	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-	object_class->dispose = indicator_appmenu_debug_dispose;
-
-	/* Setting up the DBus interfaces */
-	if (dbg_node_info == NULL) {
-		GError * error = NULL;
-
-		dbg_node_info = g_dbus_node_info_new_for_xml(_application_menu_renderer, &error);
-		if (error != NULL) {
-			g_critical("Unable to parse Application Menu Renderer Interface description: %s", error->message);
-			g_error_free(error);
-		}
-	}
-
-	if (dbg_interface_info == NULL) {
-		dbg_interface_info = g_dbus_node_info_lookup_interface(dbg_node_info, DEBUG_IFACE);
-
-		if (dbg_interface_info == NULL) {
-			g_critical("Unable to find interface '" DEBUG_IFACE "'");
-		}
-	}
-
-	return;
-}
-
-/* Per instance Init */
-static void
-indicator_appmenu_debug_init (IndicatorAppmenuDebug *self)
-{
-	self->appmenu = NULL;
-	self->bus_cancel = NULL;
-	self->bus = NULL;
-	self->dbus_registration = 0;
-
-	/* Register this object on DBus */
-	self->bus_cancel = g_cancellable_new();
-	g_bus_get(G_BUS_TYPE_SESSION,
-	          self->bus_cancel,
-	          dbg_bus_get_cb,
-	          self);
-
-	return;
-}
-
-static void
-dbg_bus_get_cb (GObject * object, GAsyncResult * res, gpointer user_data)
-{
-	GError * error = NULL;
-	GDBusConnection * connection = g_bus_get_finish(res, &error);
-
-	if (error != NULL) {
-		g_critical("OMG! Unable to get a connection to DBus: %s", error->message);
-		g_error_free(error);
-		return;
-	}
-
-	IndicatorAppmenuDebug * iappd = (IndicatorAppmenuDebug *)user_data;
-
-	g_warn_if_fail(iappd->bus == NULL);
-	iappd->bus = connection;
-
-	if (iappd->bus_cancel != NULL) {
-		g_object_unref(iappd->bus_cancel);
-		iappd->bus_cancel = NULL;
-	}
-
-	/* Now register our object on our new connection */
-	iappd->dbus_registration = g_dbus_connection_register_object(iappd->bus,
-	                                                             DEBUG_OBJECT,
-	                                                             dbg_interface_info,
-	                                                             &dbg_interface_table,
-	                                                             user_data,
-	                                                             NULL,
-	                                                             &error);
-
-	if (error != NULL) {
-		g_critical("Unable to register the object to DBus: %s", error->message);
-		g_error_free(error);
-		return;
-	}
-
-	return;	
-}
-
-/* Object refs decrement */
-static void
-indicator_appmenu_debug_dispose (GObject *object)
-{
-	IndicatorAppmenuDebug * iappd = INDICATOR_APPMENU_DEBUG(object);
-
-	if (iappd->dbus_registration != 0) {
-		g_dbus_connection_unregister_object(iappd->bus, iappd->dbus_registration);
-		/* Don't care if it fails, there's nothing we can do */
-		iappd->dbus_registration = 0;
-	}
-
-	if (iappd->bus != NULL) {
-		g_object_unref(iappd->bus);
-		iappd->bus = NULL;
-	}
-
-	if (iappd->bus_cancel != NULL) {
-		g_cancellable_cancel(iappd->bus_cancel);
-		g_object_unref(iappd->bus_cancel);
-		iappd->bus_cancel = NULL;
-	}
-
-	G_OBJECT_CLASS (indicator_appmenu_debug_parent_class)->dispose (object);
 	return;
 }
 
@@ -1005,6 +856,21 @@ show_menu_stubs (BamfApplication * app)
 	return TRUE;
 }
 
+/* Take a list of entries and turn it into a list instead of
+   an array */
+static GList *
+entry_array_to_list (GArray * array)
+{
+	GList * output = NULL;
+	int i;
+
+	for (i = 0; i < array->len; i++) {
+		output = g_list_prepend(output, &g_array_index(array, IndicatorObjectEntry, i));
+	}
+
+	return g_list_reverse(output);
+}
+
 /* Get the current set of entries */
 static GList *
 get_entries (IndicatorObject * io)
@@ -1019,16 +885,13 @@ get_entries (IndicatorObject * io)
 
 	/* If we have a focused app with menus, use it's windows */
 	if (iapp->default_app != NULL) {
-		return window_menus_get_entries(iapp->default_app);
+		return entry_array_to_list(iapp->application_menus);
 	}
 
-	/* Else, let's go with desktop windows if there isn't a focused window */
+	/* Else, let's go with desktop windows if there isn't a focused window.
+	   They should already be put in the application menus if that's the case */
 	if (iapp->active_window == NULL) {
-		if (iapp->desktop_menu == NULL) {
-			return NULL;
-		} else {
-			return window_menus_get_entries(iapp->desktop_menu);
-		}
+		return entry_array_to_list(iapp->application_menus);
 	}
 
 	/* Oh, now we're looking at stubs. */
@@ -1056,17 +919,9 @@ get_entries (IndicatorObject * io)
 		return NULL;
 	}
 
-	GList * output = NULL;
-	int i;
-
-	/* There is only one item in window_menus now, but there
-	   was more, and there is likely to be more in the future
-	   so we're leaving this here to avoid a possible bug. */
-	for (i = 0; i < iapp->window_menus->len; i++) {
-		output = g_list_append(output, &g_array_index(iapp->window_menus, IndicatorObjectEntry, i));
-	}
-
-	return output;
+	/* If we're down here we want to push out those stubs, let's
+	   get 'em out! */
+	return entry_array_to_list(iapp->window_menus);
 }
 
 /* Grabs the location of the entry */
@@ -1075,26 +930,36 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 {
 	guint count = 0;
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(io);
+
+	GArray * array = NULL;
+
 	if (iapp->default_app != NULL) {
 		/* Find the location in the app */
-		count = window_menus_get_location(iapp->default_app, entry);
+		array = iapp->application_menus;
 	} else if (iapp->active_window != NULL) {
-		/* Find the location in the window menus */
-		for (count = 0; count < iapp->window_menus->len; count++) {
-			if (entry == &g_array_index(iapp->window_menus, IndicatorObjectEntry, count)) {
-				break;
-			}
-		}
-		if (count == iapp->window_menus->len) {
-			g_warning("Unable to find entry in default window menus");
-			count = 0;
-		}
+		array = iapp->window_menus;
 	} else {
 		/* Find the location in the desktop menu */
 		if (iapp->desktop_menu != NULL) {
-			count = window_menus_get_location(iapp->desktop_menu, entry);
+			array = iapp->application_menus;
 		}
 	}
+
+	/* Find the location in the array */
+	if (array != NULL) {
+		for (count = 0; count < array->len; count++) {
+			if (entry == &g_array_index(array, IndicatorObjectEntry, count)) {
+				break;
+			}
+		}
+		if (count == array->len) {
+			g_warning("Unable to find entry in exported menus");
+			count = 0;
+		}
+	} else {
+		g_warning("Looking for menus and we're not exporting any?");
+	}
+
 	return count;
 }
 
@@ -1222,23 +1087,200 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
+/* Find the label in a GTK MenuItem */
+GtkLabel *
+mi_find_label (GtkWidget * mi)
+{
+	if (GTK_IS_LABEL(mi)) {
+		return GTK_LABEL(mi);
+	}
+
+	GtkLabel * retval = NULL;
+
+	if (GTK_IS_CONTAINER(mi)) {
+		GList * children = gtk_container_get_children(GTK_CONTAINER(mi));
+		GList * child = children;
+
+		while (child != NULL && retval == NULL) {
+			if (GTK_IS_WIDGET(child->data)) {
+				retval = mi_find_label(GTK_WIDGET(child->data));
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
+	}
+
+	return retval;
+}
+
+/* Find the icon in a GTK MenuItem */
+GtkImage *
+mi_find_icon (GtkWidget * mi)
+{
+	if (GTK_IS_IMAGE(mi)) {
+		return GTK_IMAGE(mi);
+	}
+
+	GtkImage * retval = NULL;
+
+	if (GTK_IS_CONTAINER(mi)) {
+		GList * children = gtk_container_get_children(GTK_CONTAINER(mi));
+		GList * child = children;
+
+		while (child != NULL && retval == NULL) {
+			if (GTK_IS_WIDGET(child->data)) {
+				retval = mi_find_icon(GTK_WIDGET(child->data));
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
+	}
+
+	return retval;
+}
+
+/* Check the menu and make sure we return it if it's a menu
+   all proper like that */
+GtkMenu *
+mi_find_menu (GtkMenuItem * mi)
+{
+	GtkWidget * retval = gtk_menu_item_get_submenu(mi);
+	if (GTK_IS_MENU(retval)) {
+		return GTK_MENU(retval);
+	} else {
+		return NULL;
+	}
+}
+
+/* Add an entry to the array with either the items that are in the
+   parameter list, or if they're undefined then we need to find
+   them here. */
+static gboolean
+add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
+{
+	if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
+		return FALSE;
+	}
+
+	if (label == NULL && icon == NULL && sub == NULL) {
+		label = mi_find_label(GTK_WIDGET(mi));
+		icon = mi_find_icon(GTK_WIDGET(mi));
+		sub = mi_find_menu(mi);
+	}
+
+	/* We need to build a new entry to handle the menuitem */
+	IndicatorObjectEntry newentry = {
+		parent_object: INDICATOR_OBJECT(iapp),
+		label: label,
+		image: icon,
+		menu: sub,
+		accessible_desc: NULL,
+		name_hint: "application-menus"
+	};
+
+	g_array_insert_val(iapp->application_menus, i, newentry);
+	IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
+
+	return TRUE;
+}
+
+/* Take a GtkMenu and make it into our entries */
+static void
+sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
+{
+	GList * children = NULL;
+
+	if (GTK_IS_CONTAINER(menu)) {
+		children = gtk_container_get_children(GTK_CONTAINER(menu));
+	}
+
+	GList * child = children;
+	guint i = 0;
+
+	/* Let's go through entries as we have them */
+	while (i < iapp->application_menus->len && child != NULL) {
+		GtkMenuItem * mi = NULL;
+
+		/* If it's not a menu item, move along the list */
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			mi = GTK_MENU_ITEM(child->data);
+		} else {
+			child = g_list_next(child);
+			continue;
+		}
+
+		if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
+			/* If it's not visible we want to skip it */
+			child = g_list_next(child);
+			continue;
+		}
+
+		GtkLabel * label = NULL;
+		GtkImage * icon = NULL;
+		GtkMenu * sub = NULL;
+		if (GTK_IS_MENU_ITEM(mi)) {
+			label = mi_find_label(GTK_WIDGET(mi));
+			icon = mi_find_icon(GTK_WIDGET(mi));
+			sub = mi_find_menu(mi);
+		}
+
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		/* Check to see if we're the same */
+		if (entry->label == label && entry->image == icon && entry->menu == sub) {
+			/* If we are move both pointers and continue */
+			i++;
+			child = g_list_next(child);
+			continue;
+		}
+
+		if (add_entry(iapp, mi, i, label, icon, sub)) {
+			/* Go to the entry that is after the one we
+			   just inserted */
+			i++;
+		}
+
+		child = g_list_next(child);
+	}
+
+	while (i < iapp->application_menus->len) {
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
+
+		g_array_remove_index(iapp->application_menus, i);
+	}
+
+	while (child != NULL) {
+		GtkMenuItem * mi = NULL;
+
+		/* If it's not a menu item, move along the list */
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			mi = GTK_MENU_ITEM(child->data);
+		} else {
+			child = g_list_next(child);
+			continue;
+		}
+
+		add_entry(iapp, mi, iapp->application_menus->len, NULL, NULL, NULL);
+
+		child = g_list_next(child);
+	}
+
+	g_list_free(children);
+
+	return;
+}
+
 /* If we're displaying a list of entries we need to remove those before
    we could switch to a different set of entries */
 static void
-remove_current_entries (IndicatorAppmenu * iapp)
+disconnect_current_signals (IndicatorAppmenu * iapp)
 {
-	/* hide the entries that we're swapping out */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), FALSE);
-	
 	/* Disconnect signals */
-	if (iapp->sig_entry_added != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_added);
-		iapp->sig_entry_added = 0;
-	}
-	if (iapp->sig_entry_removed != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_removed);
-		iapp->sig_entry_removed = 0;
-	}
 	if (iapp->sig_status_changed != 0) {
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_status_changed);
 		iapp->sig_status_changed = 0;
@@ -1247,9 +1289,9 @@ remove_current_entries (IndicatorAppmenu * iapp)
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_show_menu);
 		iapp->sig_show_menu = 0;
 	}
-	if (iapp->sig_a11y_update != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_a11y_update);
-		iapp->sig_a11y_update = 0;
+	if (iapp->sig_menu_changed != 0) {
+		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_menu_changed);
+		iapp->sig_menu_changed = 0;
 	}
 
 	return;
@@ -1258,19 +1300,11 @@ remove_current_entries (IndicatorAppmenu * iapp)
 /* Put back some entries to ensure we've got something to click on!  This might
    be the stubs in some cases */
 static void
-add_default_app_entries (IndicatorAppmenu * iapp)
+reconnect_signals (IndicatorAppmenu * iapp)
 {
 	/* If we're putting up a new window, let's do that now. */
 	if (iapp->default_app != NULL) {
 		/* Connect signals */
-		iapp->sig_entry_added =   g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_ENTRY_ADDED,
-		                                           G_CALLBACK(window_entry_added),
-		                                           iapp);
-		iapp->sig_entry_removed = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_ENTRY_REMOVED,
-		                                           G_CALLBACK(window_entry_removed),
-		                                           iapp);
 		iapp->sig_status_changed = g_signal_connect(G_OBJECT(iapp->default_app),
 		                                           WINDOW_MENUS_SIGNAL_STATUS_CHANGED,
 		                                           G_CALLBACK(window_status_changed),
@@ -1279,14 +1313,11 @@ add_default_app_entries (IndicatorAppmenu * iapp)
 		                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
 		                                           G_CALLBACK(window_show_menu),
 		                                           iapp);
-		iapp->sig_a11y_update   = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_A11Y_UPDATE,
-		                                           G_CALLBACK(window_a11y_update),
+		iapp->sig_menu_changed  = g_signal_connect(G_OBJECT(iapp->default_app),
+		                                           WINDOW_MENUS_SIGNAL_MENU_CHANGED,
+		                                           G_CALLBACK(window_menu_changed),
 		                                           iapp);
 	}
-
-	/* show the entries that we're swapping in */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), TRUE);
 
 		/* Set up initial state for new entries if needed */
 	if (iapp->default_app != NULL &&
@@ -1319,7 +1350,7 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		return;
 	}
 
-	remove_current_entries(iapp);
+	disconnect_current_signals(iapp);
 
 	/* Default App is NULL, let's see if it needs replacement */
 	iapp->default_app = NULL;
@@ -1333,7 +1364,20 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		iapp->default_app = newdef;
 	}
 
-	add_default_app_entries(iapp);
+	GtkMenu * menus = NULL;
+
+	if (iapp->default_app != NULL) {
+		menus = window_menus_get_menu(iapp->default_app);
+	}
+
+	if (menus == NULL && iapp->active_window == NULL) {
+		menus = window_menus_get_menu(iapp->desktop_menu);
+	}
+
+	sync_menu_to_app_entries(iapp, menus);	
+	reconnect_signals(iapp);
+
+	/* TODO: Send stubs if appropriate */
 
 	return;
 }
@@ -1596,22 +1640,6 @@ bus_method_call (GDBusConnection * connection, const gchar * sender,
 	return;
 }
 
-/* Pass up the entry added event */
-static void
-window_entry_added (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
-	return;
-}
-
-/* Pass up the entry removed event */
-static void
-window_entry_removed (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
-	return;
-}
-
 /* Pass up the status changed event */
 static void
 window_status_changed (WindowMenus * mw, DbusmenuStatus status, IndicatorAppmenu * iapp)
@@ -1631,17 +1659,37 @@ window_status_changed (WindowMenus * mw, DbusmenuStatus status, IndicatorAppmenu
 
 /* Pass up the show menu event */
 static void
-window_show_menu (WindowMenus * mw, IndicatorObjectEntry * entry, guint timestamp, gpointer user_data)
+window_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointer user_data)
 {
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+	if (item == NULL) {
+		g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, NULL, timestamp);
+		return;
+	}
+
+	GtkMenu * sub = GTK_MENU(gtk_menu_item_get_submenu(item));
+	if (sub == NULL) {
+		return;
+	}
+
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	int i;
+	for (i = 0; i < iapp->application_menus->len; i++) {
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		if (entry->menu == sub) {
+			g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+			break;
+		}
+	}
+
 	return;
 }
 
-/* Pass up the accessible string update */
+/* Pass up the show menu event */
 static void
-window_a11y_update (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
+window_menu_changed (WindowMenus * mw, gpointer user_data)
 {
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ACCESSIBLE_DESC_UPDATE, entry);
+	sync_menu_to_app_entries(INDICATOR_APPMENU(user_data), window_menus_get_menu(mw));
 	return;
 }
 
@@ -1661,357 +1709,5 @@ error_quark (void)
 	}
 
 	return error_quark;
-}
-
-/* Looks to see if we can find an accel label to steal the
-   closure from */
-static void
-find_closure (GtkWidget * widget, gpointer user_data)
-{
-	GClosure ** closure = (GClosure **)user_data;
-
-	/* If we have one quit */
-	if (*closure != NULL) {
-		return;
-	}
-	
-	/* If we've got a label, steal its */
-	if (GTK_IS_ACCEL_LABEL(widget)) {
-		g_object_get (widget,
-		              "accel-closure", closure,
-		              NULL);
-		return;
-	}
-
-	/* If we've got a container, dig deeper */
-	if (GTK_IS_CONTAINER(widget)) {
-		gtk_container_foreach(GTK_CONTAINER(widget), find_closure, user_data);
-	}
-
-	return;
-}
-
-/* Look at the closures in an accel group and find
-   the one that matches the one we've been passed */
-static gboolean
-find_group_closure (GtkAccelKey * key, GClosure * closure, gpointer user_data)
-{
-	return closure == user_data;
-}
-
-/* Turn the key codes into a string for the JSON output */
-static void
-key2string (GtkAccelKey * key, GArray * strings)
-{
-	gchar * temp = NULL;
-
-	temp = g_strdup(", \"" DBUSMENU_MENUITEM_PROP_SHORTCUT "\": [[");
-	g_array_append_val(strings, temp);
-
-	if (key->accel_mods & GDK_CONTROL_MASK) {
-		temp = g_strdup_printf("\"%s\", ", DBUSMENU_MENUITEM_SHORTCUT_CONTROL);
-		g_array_append_val(strings, temp);
-	}
-	if (key->accel_mods & GDK_MOD1_MASK) {
-		temp = g_strdup_printf("\"%s\", ", DBUSMENU_MENUITEM_SHORTCUT_ALT);
-		g_array_append_val(strings, temp);
-	}
-	if (key->accel_mods & GDK_SHIFT_MASK) {
-		temp = g_strdup_printf("\"%s\", ", DBUSMENU_MENUITEM_SHORTCUT_SHIFT);
-		g_array_append_val(strings, temp);
-	}
-	if (key->accel_mods & GDK_SUPER_MASK) {
-		temp = g_strdup_printf("\"%s\", ", DBUSMENU_MENUITEM_SHORTCUT_SUPER);
-		g_array_append_val(strings, temp);
-	}
-
-	temp = g_strdup_printf("\"%s\"]]", gdk_keyval_name(key->accel_key));
-	g_array_append_val(strings, temp);
-
-	return;
-}
-
-/* Do something for each menu item */
-static void
-menu_iterator (GtkWidget * widget, gpointer user_data)
-{
-	GArray * strings = (GArray *)user_data;
-
-	gchar * temp = g_strdup("{");
-	g_array_append_val(strings, temp);
-
-	/* TODO: We need some sort of useful ID, but for now  we're
-	   just ensuring it's unique. */
-	temp = g_strdup_printf("\"id\": %d", strings->len);
-	g_array_append_val(strings, temp);
-
-	if (GTK_IS_SEPARATOR_MENU_ITEM(widget)) {
-		temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_TYPE "\": \"%s\"", DBUSMENU_CLIENT_TYPES_SEPARATOR);
-		g_array_append_val(strings, temp);
-	} else {
-		temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_TYPE "\": \"%s\"", DBUSMENU_CLIENT_TYPES_DEFAULT);
-		g_array_append_val(strings, temp);
-	}
-
-	temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_ENABLED "\": %s", gtk_widget_get_sensitive(GTK_WIDGET(widget)) ? "true" : "false");
-	g_array_append_val(strings, temp);
-
-	temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_VISIBLE "\": %s", gtk_widget_get_visible(GTK_WIDGET(widget)) ? "true" : "false");
-	g_array_append_val(strings, temp);
-
-	const gchar * label = gtk_menu_item_get_label(GTK_MENU_ITEM(widget));
-	if (label != NULL) {
-		temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_LABEL "\": \"%s\"", label);
-		g_array_append_val(strings, temp);
-	}
-
-	/* Deal with shortcuts, find the accel closure if we can and then
-	   turn that into a string */
-	GClosure * closure = NULL;
-	find_closure(widget, &closure);
-
-	if (closure != NULL) {
-		GtkAccelGroup * group = gtk_accel_group_from_accel_closure(closure);
-		if (group != NULL) {
-			GtkAccelKey * key = gtk_accel_group_find(group, find_group_closure, closure);
-			if (key != NULL) {
-				key2string(key, strings);
-			}
-		}
-	}
-
-	/* TODO: Handle check/radio items */
-
-	GtkWidget * submenu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(widget));
-	if (submenu != NULL) {
-		temp = g_strdup(", \"" DBUSMENU_MENUITEM_PROP_CHILD_DISPLAY "\": \"" DBUSMENU_MENUITEM_CHILD_DISPLAY_SUBMENU "\"");
-		g_array_append_val(strings, temp);
-
-		temp = g_strdup(", \"submenu\": [ ");
-		g_array_append_val(strings, temp);
-
-		guint old_len = strings->len;
-
-		gtk_container_foreach(GTK_CONTAINER(submenu), menu_iterator, strings);
-
-		if (old_len == strings->len) {
-			temp = g_strdup("]");
-			g_array_append_val(strings, temp);
-		} else {
-			gchar * last_one = g_array_index(strings, gchar *, strings->len - 1);
-			guint lastlen = g_utf8_strlen(last_one, -1);
-
-			if (last_one[lastlen - 1] != ',') {
-				g_warning("Huh, this seems impossible.  Should be a comma at the end.");
-			}
-
-			last_one[lastlen - 1] = ']';
-		}
-	}
-
-	temp = g_strdup("},");
-	g_array_append_val(strings, temp);
-
-	return;
-}
-
-/* Takes an entry and outputs it into the ptrarray */
-static void
-entry2json (IndicatorObjectEntry * entry, GArray * strings)
-{
-	gchar * temp = g_strdup("{");
-	g_array_append_val(strings, temp);
-
-	/* TODO: We need some sort of useful ID, but for now  we're
-	   just ensuring it's unique. */
-	temp = g_strdup_printf("\"id\": %d", strings->len);
-	g_array_append_val(strings, temp);
-
-	if (entry->label != NULL) {
-		temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_LABEL "\": \"%s\"", gtk_label_get_label(entry->label));
-		g_array_append_val(strings, temp);
-
-		temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_ENABLED "\": %s", gtk_widget_get_sensitive(GTK_WIDGET(entry->label)) ? "true" : "false");
-		g_array_append_val(strings, temp);
-
-		temp = g_strdup_printf(", \"" DBUSMENU_MENUITEM_PROP_VISIBLE "\": %s", gtk_widget_get_visible(GTK_WIDGET(entry->label)) ? "true" : "false");
-		g_array_append_val(strings, temp);
-	}
-
-	if (entry->menu != NULL) {
-		temp = g_strdup(", \"" DBUSMENU_MENUITEM_PROP_CHILD_DISPLAY "\": \"" DBUSMENU_MENUITEM_CHILD_DISPLAY_SUBMENU "\"");
-		g_array_append_val(strings, temp);
-
-		temp = g_strdup(", \"submenu\": [ ");
-		g_array_append_val(strings, temp);
-
-		guint old_len = strings->len;
-
-		gtk_container_foreach(GTK_CONTAINER(entry->menu), menu_iterator, strings);
-
-		if (old_len == strings->len) {
-			temp = g_strdup("]");
-			g_array_append_val(strings, temp);
-		} else {
-			gchar * last_one = g_array_index(strings, gchar *, strings->len - 1);
-			guint lastlen = g_utf8_strlen(last_one, -1);
-
-			if (last_one[lastlen - 1] != ',') {
-				g_warning("Huh, this seems impossible.  Should be a comma at the end.");
-			}
-
-			last_one[lastlen - 1] = ']';
-		}
-	}
-
-
-	temp = g_strdup("},");
-	g_array_append_val(strings, temp);
-
-	return;
-}
-
-/* Grab the location of the dbusmenu of the current menu */
-static GVariant *
-get_current_menu (IndicatorAppmenuDebug * iappd, GError ** error)
-{
-	IndicatorAppmenu * iapp = iappd->appmenu;
-
-	if (iapp->default_app == NULL) {
-		g_set_error_literal(error, error_quark(), ERROR_NO_DEFAULT_APP, "Not currently showing an application");
-		return NULL;
-	}
-
-	return g_variant_new("(so)", window_menus_get_address(iapp->default_app),
-	                     window_menus_get_path(iapp->default_app));
-}
-
-/* Activate menu items through a script given as a parameter */
-static GVariant *
-activate_menu_item (IndicatorAppmenuDebug * iappd, GVariantIter * iter, GError ** error)
-{
-	/* TODO: Do it */
-
-	return g_variant_new("()");
-}
-
-/* Dump a specific window's menus to a JSON file */
-static GVariant *
-dump_menu (IndicatorAppmenuDebug * iappd, guint windowid, GError ** error)
-{
-	IndicatorAppmenu * iapp = iappd->appmenu;
-	WindowMenus * wm = NULL;
-	gchar * jsondata = NULL;
-
-	if (windowid == 0) {
-		wm = iapp->default_app;
-	} else {
-		wm = WINDOW_MENUS(g_hash_table_lookup(iapp->apps, GUINT_TO_POINTER(windowid)));
-	}
-
-	if (wm == NULL) {
-		g_set_error_literal(error, error_quark(), ERROR_WINDOW_NOT_FOUND, "Window not found");
-		return NULL;
-	}
-
-	GArray * strings = g_array_new(TRUE, FALSE, sizeof(gchar *));
-	GList * entries = window_menus_get_entries(wm);
-	GList * entry;
-
-	gchar * temp = g_strdup("{");
-	g_array_append_val(strings, temp);
-
-	temp = g_strdup("\"id\": 0");
-	g_array_append_val(strings, temp);
-
-	if (entries != NULL) {
-		temp = g_strdup(", \"" DBUSMENU_MENUITEM_PROP_CHILD_DISPLAY "\": \"" DBUSMENU_MENUITEM_CHILD_DISPLAY_SUBMENU "\"");
-		g_array_append_val(strings, temp);
-
-		temp = g_strdup(", \"submenu\": [");
-		g_array_append_val(strings, temp);
-	}
-
-	guint old_len = strings->len;
-
-	for (entry = entries; entry != NULL; entry = g_list_next(entry)) {
-		entry2json(entry->data, strings);
-	}
-
-	if (entries != NULL) {
-		if (old_len == strings->len) {
-			temp = g_strdup("]");
-			g_array_append_val(strings, temp);
-		} else {
-			gchar * last_one = g_array_index(strings, gchar *, strings->len - 1);
-			guint lastlen = g_utf8_strlen(last_one, -1);
-
-			if (last_one[lastlen - 1] != ',') {
-				g_warning("Huh, this seems impossible.  Should be a comma at the end.");
-			}
-
-			last_one[lastlen - 1] = ']';
-		}
-	}
-
-	g_list_free(entries);
-
-	temp = g_strdup("}");
-	g_array_append_val(strings, temp);
-
-	jsondata = g_strjoinv(NULL, (gchar **)strings->data);
-	g_strfreev((gchar **)strings->data);
-	g_array_free(strings, FALSE);
-
-	GVariant * rv = g_variant_new("(s)", jsondata);
-	g_free(jsondata);
-	return rv;
-}
-
-/* Dump the current menu to a JSON file */
-static GVariant *
-dump_current_menu  (IndicatorAppmenuDebug * iappd, GError ** error)
-{
-	return dump_menu(iappd, 0, error);
-}
-
-/* A method has been called from our dbus inteface.  Figure out what it
-   is and dispatch it. */
-static void
-dbg_bus_method_call (GDBusConnection * connection, const gchar * sender,
-                     const gchar * path, const gchar * interface,
-                     const gchar * method, GVariant * params,
-                     GDBusMethodInvocation * invocation, gpointer user_data)
-{
-	IndicatorAppmenuDebug * iappd = INDICATOR_APPMENU_DEBUG(user_data);
-	GVariant * retval = NULL;
-	GError * error = NULL;
-
-	if (g_strcmp0(method, "GetCurrentMenu") == 0) {
-		retval = get_current_menu(iappd, &error);
-	} else if (g_strcmp0(method, "ActivateMenuItem") == 0) {
-		GVariantIter *iter;
-		g_variant_get(params, "(ai)", &iter);
-		retval = activate_menu_item(iappd, iter, &error);
-		g_variant_iter_free(iter);
-	} else if (g_strcmp0(method, "DumpCurrentMenu") == 0) {
-		retval = dump_current_menu(iappd, &error);
-	} else if (g_strcmp0(method, "DumpMenu") == 0) {
-		guint32 xid;
-		g_variant_get(params, "(u)", &xid);
-		retval = dump_menu(iappd, xid, &error);
-	} else {
-		g_warning("Calling method '%s' on the indicator service and it's unknown", method);
-	}
-
-	if (error != NULL) {
-		g_dbus_method_invocation_return_dbus_error(invocation,
-		                                           "com.canonical.AppMenu.Error",
-		                                           error->message);
-		g_error_free(error);
-	} else {
-		g_dbus_method_invocation_return_value(invocation, retval);
-	}
-	return;
 }
 
