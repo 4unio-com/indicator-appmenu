@@ -216,12 +216,26 @@ event_status (DbusmenuClient * client, DbusmenuMenuitem * mi, gchar * event, GVa
 		priv->error_state = FALSE;
 		g_signal_emit(G_OBJECT(user_data), signals[ERROR_STATE], 0, priv->error_state, TRUE);
 
-		/*  TODO: Need to do this on the menus
-		for (i = 0; i < priv->entries->len; i++) {
-			IndicatorObjectEntry * entry = g_array_index(priv->entries, IndicatorObjectEntry *, i);
-			window_menus_entry_restore(WINDOW_MENUS(user_data), entry);
+		GList * children = NULL;
+
+		if (DBUSMENU_MENUITEM(priv->root)) {
+			children = dbusmenu_menuitem_get_children(DBUSMENU_MENUITEM(priv->root));
 		}
-		*/
+
+		GList * child = children;
+		while (child != NULL) {
+			if (DBUSMENU_MENUITEM(child->data)) {
+				DbusmenuMenuitem * mi = DBUSMENU_MENUITEM(child->data);
+				GtkMenuItem * gmi = dbusmenu_gtkclient_menuitem_get(priv->client, mi);
+
+				if (gmi != NULL) {
+					gtk_widget_set_sensitive(GTK_WIDGET(gmi), dbusmenu_menuitem_property_get_bool(mi, DBUSMENU_MENUITEM_PROP_ENABLED));
+				}
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
 
 		if (priv->retry_timer != 0) {
 			g_source_remove(priv->retry_timer);
@@ -236,18 +250,21 @@ event_status (DbusmenuClient * client, DbusmenuMenuitem * mi, gchar * event, GVa
 	priv->error_state = TRUE;
 	g_signal_emit(G_OBJECT(user_data), signals[ERROR_STATE], 0, priv->error_state, TRUE);
 
-	/* TODO: Need to do this on the menu item
-	for (i = 0; i < priv->entries->len; i++) {
-		IndicatorObjectEntry * entry = g_array_index(priv->entries, IndicatorObjectEntry *, i);
+	GList * children = NULL;
 
-		if (entry->label != NULL) {
-			gtk_widget_set_sensitive(GTK_WIDGET(entry->label), FALSE);
-		}
-		if (entry->image != NULL) {
-			gtk_widget_set_sensitive(GTK_WIDGET(entry->image), FALSE);
-		}
+	if (GTK_IS_MENU(priv->menu)) {
+		children = gtk_container_get_children(GTK_CONTAINER(priv->menu));
 	}
-	*/
+
+	GList * child = children;
+	while (child != NULL) {
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			gtk_widget_set_sensitive(GTK_WIDGET(child->data), FALSE);
+		}
+		child = g_list_next(child);
+	}
+
+	g_list_free(children);
 
 	if (priv->retry_timer == 0) {
 		g_debug("Setting up retry timer");
