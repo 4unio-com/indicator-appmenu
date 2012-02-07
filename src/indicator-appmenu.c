@@ -175,6 +175,10 @@ static void old_window                                               (BamfMatche
 static void window_status_changed                                    (WindowMenus * mw,
                                                                       DbusmenuStatus status,
                                                                       IndicatorAppmenu * iapp);
+static void single_show_menu                                         (WindowMenus * mw,
+                                                                      GtkMenuItem * item,
+                                                                      guint timestamp,
+                                                                      gpointer user_data);
 static void window_show_menu                                         (WindowMenus * mw,
                                                                       GtkMenuItem * item,
                                                                       guint timestamp,
@@ -773,6 +777,13 @@ menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
 
 		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), iapp->single_menu.menu != NULL);
 		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, &(iapp->single_menu));
+
+		if (iapp->default_app != NULL) {
+			iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
+			                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
+			                                           G_CALLBACK(single_show_menu),
+			                                           iapp);
+		}
 	}
 
 	if (iapp->menu_mode == MENU_MODE_SEVERAL) {
@@ -1697,6 +1708,17 @@ window_status_changed (WindowMenus * mw, DbusmenuStatus status, IndicatorAppmenu
 		g_signal_emit(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_SHOW_NOW_CHANGED_ID, 0, entry, show_now);
 	}
 
+	return;
+}
+
+/* when we show a menu in the single menu case we just want to
+   ensure that we signal the single menu is being shown so that
+   the panel can place it correctly. */
+static void
+single_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointer user_data)
+{
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, &(iapp->single_menu), timestamp);
 	return;
 }
 
