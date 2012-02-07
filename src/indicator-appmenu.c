@@ -757,19 +757,11 @@ menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
 	/* If we're going to single menus make sure we have the objects
 	   we need built */
 	if (iapp->menu_mode == MENU_MODE_SINGLE) {
-#if 0
 		if (iapp->single_menu.image == NULL) {
 			iapp->single_menu.image = indicator_image_helper("indicator-appmenu-menu-panel");
 			g_object_ref_sink(iapp->single_menu.image);
 			gtk_widget_show(GTK_WIDGET(iapp->single_menu.image));
 		}
-#else
-		if (iapp->single_menu.label == NULL) {
-			iapp->single_menu.label = GTK_LABEL(gtk_label_new("Menus"));
-			g_object_ref_sink(iapp->single_menu.label);
-			gtk_widget_show(GTK_WIDGET(iapp->single_menu.label));
-		}
-#endif
 
 		sync_menu_to_app_entries(iapp, NULL);
 
