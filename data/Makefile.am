@@ -1,5 +1,5 @@
 iconsdir = \
-	$(sharedir)/icons/hicolor/scalable/status
+	$(datadir)/icons/hicolor/scalable/status
 
 icons_DATA = \
 	indicator-appmenu-menu-panel.svg
