@@ -384,7 +384,7 @@ tokens_to_children (MenuitemCollector * collector, DbusmenuMenuitem * rootitem, 
 
 	if (!dbusmenu_menuitem_get_root(rootitem) && newstr != NULL) {
 		GStrv used_strings = NULL;
-		guint distance = calculate_distance(search, newstr, &used_strings);
+		guint distance = calculate_distance(search, (const gchar **) newstr, &used_strings);
 		if (distance < max_distance) {
 			// g_debug("Distance %d for '%s' in \"'%s'\" using \"'%s'\"", distance, search, g_strjoinv("' '", newstr), g_strjoinv("' '", used_strings));
 			results = g_list_prepend(results, menuitem_collector_found_new(client, rootitem, newstr, distance, used_strings));
@@ -429,7 +429,7 @@ process_client (MenuitemCollector * collector, DbusmenuClient * client, const gc
 			array[0] = label;
 			array[1] = NULL;
 
-			results = g_list_prepend(results, menuitem_collector_found_new(client, item, (GStrv)array, calculate_distance(NULL, (GStrv)array, NULL), NULL));
+			results = g_list_prepend(results, menuitem_collector_found_new(client, item, (GStrv)array, calculate_distance(NULL, array, NULL), NULL));
 		}
 
 		return results;

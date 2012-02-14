@@ -307,7 +307,7 @@ find_token (guint token_number, GStrv * haystacks, guint num_haystacks)
 #define SEPARATORS " .->"
 
 guint
-calculate_distance (const gchar * needle, GStrv haystacks, GStrv * matches)
+calculate_distance (const gchar * needle, const gchar * const * haystacks, GStrv * matches)
 {
 	g_return_val_if_fail(needle != NULL || haystacks != NULL, G_MAXUINT);
 	guint final_distance = G_MAXUINT;
@@ -321,7 +321,7 @@ calculate_distance (const gchar * needle, GStrv haystacks, GStrv * matches)
 
 	/* Tokenize all the haystack strings */
 	gint i;
-	guint num_haystacks = g_strv_length(haystacks);
+	guint num_haystacks = g_strv_length((GStrv) haystacks);
 	guint num_haystack_tokens = 0;
 	GStrv * haystacks_array = g_new0(GStrv, num_haystacks);
 	for (i = 0; i < num_haystacks; i++) {
