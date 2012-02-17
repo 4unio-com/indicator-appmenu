@@ -1417,7 +1417,6 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		sync_menu_to_app_entries(iapp, menus);	
 		reconnect_signals(iapp);
 	} else {
-		sync_menu_to_app_entries(iapp, NULL);	
 		iapp->single_menu.menu = menus;
 
 		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), menus != NULL);
