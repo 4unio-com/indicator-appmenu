@@ -1420,6 +1420,13 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		iapp->single_menu.menu = menus;
 
 		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), menus != NULL);
+
+		if (iapp->default_app != NULL) {
+			iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
+			                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
+			                                           G_CALLBACK(single_show_menu),
+			                                           iapp);
+		}
 	}
 
 	return;
