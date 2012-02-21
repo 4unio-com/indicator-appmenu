@@ -88,8 +88,9 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(dbus_servicesdir)"
-DATA = $(dbus_services_DATA)
+am__installdirs = "$(DESTDIR)$(dbus_servicesdir)" \
+	"$(DESTDIR)$(iconsdir)"
+DATA = $(dbus_services_DATA) $(icons_DATA)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 ALL_LINGUAS = @ALL_LINGUAS@
@@ -262,6 +263,12 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+iconsdir = \
+	$(datadir)/icons/hicolor/scalable/status
+
+icons_DATA = \
+	indicator-appmenu-menu-panel.svg
+
 gsettings_in_files = \
     com.canonical.indicator.appmenu.gschema.xml.in \
     com.canonical.indicator.appmenu.hud.gschema.xml.in \
@@ -273,6 +280,7 @@ gsettings_SCHEMAS = \
 dbus_servicesdir = $(DBUSSERVICEDIR)
 dbus_services_DATA = com.canonical.hud.service
 EXTRA_DIST = \
+	$(icons_DATA) \
 	$(dbus_services_DATA:.service=.service.in) \
 	$(gsettings_in_files)
 
@@ -338,6 +346,24 @@ uninstall-dbus_servicesDATA:
 	@list='$(dbus_services_DATA)'; test -n "$(dbus_servicesdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	dir='$(DESTDIR)$(dbus_servicesdir)'; $(am__uninstall_files_from_dir)
+install-iconsDATA: $(icons_DATA)
+	@$(NORMAL_INSTALL)
+	test -z "$(iconsdir)" || $(MKDIR_P) "$(DESTDIR)$(iconsdir)"
+	@list='$(icons_DATA)'; test -n "$(iconsdir)" || list=; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(iconsdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(iconsdir)" || exit $$?; \
+	done
+
+uninstall-iconsDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(icons_DATA)'; test -n "$(iconsdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(iconsdir)'; $(am__uninstall_files_from_dir)
 tags: TAGS
 TAGS:
 
@@ -379,7 +405,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(dbus_servicesdir)"; do \
+	for dir in "$(DESTDIR)$(dbus_servicesdir)" "$(DESTDIR)$(iconsdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -433,7 +459,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dbus_servicesDATA
+install-data-am: install-dbus_servicesDATA install-iconsDATA
 
 install-dvi: install-dvi-am
 
@@ -477,7 +503,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-dbus_servicesDATA
+uninstall-am: uninstall-dbus_servicesDATA uninstall-iconsDATA
 
 .MAKE: install-am install-strip
 
@@ -486,12 +512,13 @@ uninstall-am: uninstall-dbus_servicesDATA
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dbus_servicesDATA \
 	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-info install-info-am \
-	install-man install-pdf install-pdf-am install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am uninstall uninstall-am uninstall-dbus_servicesDATA
+	install-html install-html-am install-iconsDATA install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am uninstall uninstall-am \
+	uninstall-dbus_servicesDATA uninstall-iconsDATA
 
 
 @INTLTOOL_XML_NOMERGE_RULE@

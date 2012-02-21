@@ -254,6 +254,7 @@ indicator_appmenu_class_init (IndicatorAppmenuClass *klass)
 	ioclass->get_location = get_location;
 	ioclass->entry_activate = entry_activate;
 	ioclass->entry_activate_window = entry_activate_window;
+
 	ioclass->entry_being_removed = NULL;
 	ioclass->entry_was_added = NULL;
 
@@ -1115,31 +1116,6 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
-<<<<<<< TREE
-/* Switch applications, remove all the entires for the previous
-   one and add them for the new application */
-static void
-switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * active_window)
-{
-	if (iapp->default_app == newdef && iapp->default_app != NULL) {
-		/* We've got an app with menus and it hasn't changed. */
-
-		/* Keep active window up-to-date, though we're probably not
-		   using it much. */
-		switch_active_window(iapp, active_window);
-		return;
-	}
-
-	if (iapp->default_app == NULL && iapp->active_window == active_window && newdef == NULL) {
-		/* There's no application menus, but the active window hasn't
-		   changed.  So there's no change. */
-		return;
-	}
-
-	/* hide the entries that we're swapping out */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), FALSE);
-	
-=======
 /* Find the label in a GTK MenuItem */
 GtkLabel *
 mi_find_label (GtkWidget * mi)
@@ -1333,7 +1309,6 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 static void
 disconnect_current_signals (IndicatorAppmenu * iapp)
 {
->>>>>>> MERGE-SOURCE
 	/* Disconnect signals */
 	if (iapp->sig_status_changed != 0) {
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_status_changed);
@@ -1373,12 +1348,6 @@ reconnect_signals (IndicatorAppmenu * iapp)
 		                                           iapp);
 	}
 
-<<<<<<< TREE
-	/* show the entries that we're swapping in */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), TRUE);
-
-=======
->>>>>>> MERGE-SOURCE
 		/* Set up initial state for new entries if needed */
 	if (iapp->default_app != NULL &&
             window_menus_get_status (iapp->default_app) != DBUSMENU_STATUS_NORMAL) {

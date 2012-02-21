@@ -524,7 +524,7 @@ uninstall-man: uninstall-man1
 
 
 .xml.1:
-	@$(XSLT_PROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+	@env -u XML_CATALOG_FILES $(XSLT_PROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
