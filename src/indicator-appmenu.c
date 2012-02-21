@@ -29,6 +29,7 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <libindicator/indicator.h>
 #include <libindicator/indicator-object.h>
+#include <libindicator/indicator-image-helper.h>
 
 #include <libdbusmenu-glib/menuitem.h>
 #include <libdbusmenu-glib/client.h>
@@ -69,6 +70,12 @@ enum _ActiveStubsState {
 	STUBS_HIDE
 };
 
+typedef enum _MenuMode MenuMode;
+enum _MenuMode {
+	MENU_MODE_SEVERAL,
+	MENU_MODE_SINGLE
+};
+
 struct _IndicatorAppmenuClass {
 	IndicatorObjectClass parent_class;
 
@@ -88,15 +95,14 @@ struct _IndicatorAppmenu {
 	BamfWindow * active_window;
 	ActiveStubsState active_stubs;
 
-	gulong sig_entry_added;
-	gulong sig_entry_removed;
 	gulong sig_status_changed;
 	gulong sig_show_menu;
-	gulong sig_a11y_update;
+	gulong sig_menu_changed;
 
 	GtkMenuItem * close_item;
 
 	GArray * window_menus;
+	GArray * application_menus;
 
 	GHashTable * desktop_windows;
 	WindowMenus * desktop_menu;
@@ -106,6 +112,10 @@ struct _IndicatorAppmenu {
 	guint dbus_registration;
 
 	GHashTable * destruction_timers;
+
+	GSettings * settings;
+	MenuMode menu_mode;
+	IndicatorObjectEntry single_menu;
 };
 
 
@@ -160,25 +170,25 @@ static void new_window                                               (BamfMatche
 static void old_window                                               (BamfMatcher * matcher,
                                                                       BamfView * view,
                                                                       gpointer user_data);
-static void window_entry_added                                       (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
-                                                                      gpointer user_data);
-static void window_entry_removed                                     (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
-                                                                      gpointer user_data);
 static void window_status_changed                                    (WindowMenus * mw,
                                                                       DbusmenuStatus status,
                                                                       IndicatorAppmenu * iapp);
-static void window_show_menu                                         (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
+static void single_show_menu                                         (WindowMenus * mw,
+                                                                      GtkMenuItem * item,
                                                                       guint timestamp,
                                                                       gpointer user_data);
-static void window_a11y_update                                       (WindowMenus * mw,
-                                                                      IndicatorObjectEntry * entry,
+static void window_show_menu                                         (WindowMenus * mw,
+                                                                      GtkMenuItem * item,
+                                                                      guint timestamp,
+                                                                      gpointer user_data);
+static void window_menu_changed                                      (WindowMenus * mw,
                                                                       gpointer user_data);
 static void active_window_changed                                    (BamfMatcher * matcher,
                                                                       BamfView * oldview,
                                                                       BamfView * newview,
+                                                                      gpointer user_data);
+static void menu_mode_changed                                        (GSettings * settings,
+                                                                      const gchar * key,
                                                                       gpointer user_data);
 static GQuark error_quark                                            (void);
 static gboolean retry_registration                                   (gpointer user_data);
@@ -204,6 +214,10 @@ static void menus_destroyed                                          (GObject * 
 static void source_unregister                                        (gpointer user_data);
 static GVariant * unregister_window                                  (IndicatorAppmenu * iapp,
                                                                       guint windowid);
+static gboolean settings_schema_exists                               (const gchar * schema);
+GtkMenu * get_current_menu                                           (IndicatorAppmenu * iapp);
+static void sync_menu_to_app_entries                                 (IndicatorAppmenu * iapp,
+                                                                      GtkMenu * menu);
 
 /* Unique error codes for debug interface */
 enum {
@@ -240,6 +254,8 @@ indicator_appmenu_class_init (IndicatorAppmenuClass *klass)
 	ioclass->get_location = get_location;
 	ioclass->entry_activate = entry_activate;
 	ioclass->entry_activate_window = entry_activate_window;
+	ioclass->entry_being_removed = NULL;
+	ioclass->entry_was_added = NULL;
 
 	/* Setting up the DBus interfaces */
 	if (node_info == NULL) {
@@ -277,9 +293,28 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->bus = NULL;
 	self->owner_id = 0;
 	self->dbus_registration = 0;
+	self->settings = NULL;
+	self->menu_mode = MENU_MODE_SEVERAL;
+	self->single_menu.parent_object = INDICATOR_OBJECT(self);
+	self->single_menu.label = NULL;
+	self->single_menu.image = NULL;
+	self->single_menu.menu = NULL;
+	self->single_menu.accessible_desc = NULL;
+	self->single_menu.name_hint = "application-menus";
+
+	/* Setup the entries for applications */
+	self->application_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 10); /* 10 entries should be enough for anyone */
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
+
+	/* Getting our settings */
+	if (settings_schema_exists("com.canonical.indicator.appmenu")) {
+		self->settings = g_settings_new("com.canonical.indicator.appmenu");
+
+		g_signal_connect(G_OBJECT(self->settings), "changed::menu-mode", G_CALLBACK(menu_mode_changed), self);
+		menu_mode_changed(self->settings, "menu-mode", self);
+	}
 
 	/* Setup the cache of windows with possible desktop entries */
 	self->desktop_windows = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -310,6 +345,23 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	retry_registration(self);
 
 	return;
+}
+
+/* Check to see if a schema exists */
+/* TODO: Use one in utils on merge */
+static gboolean
+settings_schema_exists (const gchar * schema)
+{
+	const gchar * const * schemas = g_settings_list_schemas();
+	int i;
+
+	for (i = 0; schemas[i] != NULL; i++) {
+		if (g_strcmp0(schemas[i], schema) == 0) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }
 
 /* If we weren't able to register on the bus, then we need
@@ -451,6 +503,16 @@ indicator_appmenu_dispose (GObject *object)
 		iapp->desktop_menu = NULL;
 	}
 
+	g_clear_object(&iapp->settings);
+
+	g_clear_object(&iapp->single_menu.label);
+	g_clear_object(&iapp->single_menu.image);
+	g_clear_object(&iapp->single_menu.menu);
+	if (iapp->single_menu.accessible_desc != NULL) {
+		g_free((gchar *)iapp->single_menu.accessible_desc); /* cast to remove const */
+		iapp->single_menu.accessible_desc = NULL;
+	}
+
 	G_OBJECT_CLASS (indicator_appmenu_parent_class)->dispose (object);
 	return;
 }
@@ -460,6 +522,11 @@ static void
 indicator_appmenu_finalize (GObject *object)
 {
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(object);
+
+	if (iapp->application_menus != NULL) {
+		g_array_free(iapp->application_menus, TRUE);
+		iapp->application_menus = NULL;
+	}
 
 	if (iapp->window_menus != NULL) {
 		if (iapp->window_menus->len != 0) {
@@ -653,6 +720,69 @@ new_window (BamfMatcher * matcher, BamfView * view, gpointer user_data)
 	return;
 }
 
+/* Called to get a new menu mode from the settings */
+static void
+menu_mode_changed (GSettings * settings, const gchar * key, gpointer user_data)
+{
+	g_return_if_fail(IS_INDICATOR_APPMENU(user_data));
+	g_return_if_fail(g_strcmp0(key, "menu-mode") == 0);
+
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	MenuMode newmode = MENU_MODE_SEVERAL;
+	gchar * strmode = g_settings_get_string(settings, key);
+
+	/* GSettings represents the enum as a set of strings.  So we need
+	   to convert that back into a real enum here */
+	if (g_strcmp0(strmode, "global") == 0) {
+		newmode = MENU_MODE_SEVERAL;
+	} else if (g_strcmp0(strmode, "locally-integrated") == 0) {
+		newmode = MENU_MODE_SINGLE;
+	} else {
+		g_assert_not_reached();
+	}
+
+	g_free(strmode);
+
+	/* No change, we are done here */
+	if (newmode == iapp->menu_mode) {
+		return;
+	}
+
+	iapp->menu_mode = newmode;
+	g_debug("Menu mode changed to: %d", iapp->menu_mode);
+
+	/* If we're going to single menus make sure we have the objects
+	   we need built */
+	if (iapp->menu_mode == MENU_MODE_SINGLE) {
+		if (iapp->single_menu.image == NULL) {
+			iapp->single_menu.image = indicator_image_helper("indicator-appmenu-menu-panel");
+			g_object_ref_sink(iapp->single_menu.image);
+			gtk_widget_show(GTK_WIDGET(iapp->single_menu.image));
+		}
+
+		sync_menu_to_app_entries(iapp, NULL);
+
+		iapp->single_menu.menu = get_current_menu(iapp);
+
+		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), iapp->single_menu.menu != NULL);
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, &(iapp->single_menu));
+
+		if (iapp->default_app != NULL) {
+			iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
+			                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
+			                                           G_CALLBACK(single_show_menu),
+			                                           iapp);
+		}
+	}
+
+	if (iapp->menu_mode == MENU_MODE_SEVERAL) {
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, &(iapp->single_menu));
+		sync_menu_to_app_entries(iapp, get_current_menu(iapp));
+	}
+
+	return;
+}
+
 typedef struct _destroy_data_t destroy_data_t;
 struct _destroy_data_t {
 	IndicatorAppmenu * iapp;
@@ -747,6 +877,21 @@ show_menu_stubs (BamfApplication * app)
 	return TRUE;
 }
 
+/* Take a list of entries and turn it into a list instead of
+   an array */
+static GList *
+entry_array_to_list (GArray * array)
+{
+	GList * output = NULL;
+	int i;
+
+	for (i = 0; i < array->len; i++) {
+		output = g_list_prepend(output, &g_array_index(array, IndicatorObjectEntry, i));
+	}
+
+	return g_list_reverse(output);
+}
+
 /* Get the current set of entries */
 static GList *
 get_entries (IndicatorObject * io)
@@ -754,18 +899,20 @@ get_entries (IndicatorObject * io)
 	g_return_val_if_fail(IS_INDICATOR_APPMENU(io), NULL);
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(io);
 
-	/* If we have a focused app with menus, use it's windows */
-	if (iapp->default_app != NULL) {
-		return window_menus_get_entries(iapp->default_app);
+	/* If we're in single menu mode, just send that */
+	if (iapp->menu_mode == MENU_MODE_SINGLE) {
+		return g_list_append(NULL, &(iapp->single_menu));
 	}
 
-	/* Else, let's go with desktop windows if there isn't a focused window */
+	/* If we have a focused app with menus, use it's windows */
+	if (iapp->default_app != NULL) {
+		return entry_array_to_list(iapp->application_menus);
+	}
+
+	/* Else, let's go with desktop windows if there isn't a focused window.
+	   They should already be put in the application menus if that's the case */
 	if (iapp->active_window == NULL) {
-		if (iapp->desktop_menu == NULL) {
-			return NULL;
-		} else {
-			return window_menus_get_entries(iapp->desktop_menu);
-		}
+		return entry_array_to_list(iapp->application_menus);
 	}
 
 	/* Oh, now we're looking at stubs. */
@@ -793,17 +940,9 @@ get_entries (IndicatorObject * io)
 		return NULL;
 	}
 
-	GList * output = NULL;
-	int i;
-
-	/* There is only one item in window_menus now, but there
-	   was more, and there is likely to be more in the future
-	   so we're leaving this here to avoid a possible bug. */
-	for (i = 0; i < iapp->window_menus->len; i++) {
-		output = g_list_append(output, &g_array_index(iapp->window_menus, IndicatorObjectEntry, i));
-	}
-
-	return output;
+	/* If we're down here we want to push out those stubs, let's
+	   get 'em out! */
+	return entry_array_to_list(iapp->window_menus);
 }
 
 /* Grabs the location of the entry */
@@ -812,26 +951,36 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 {
 	guint count = 0;
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(io);
+
+	GArray * array = NULL;
+
 	if (iapp->default_app != NULL) {
 		/* Find the location in the app */
-		count = window_menus_get_location(iapp->default_app, entry);
+		array = iapp->application_menus;
 	} else if (iapp->active_window != NULL) {
-		/* Find the location in the window menus */
-		for (count = 0; count < iapp->window_menus->len; count++) {
-			if (entry == &g_array_index(iapp->window_menus, IndicatorObjectEntry, count)) {
-				break;
-			}
-		}
-		if (count == iapp->window_menus->len) {
-			g_warning("Unable to find entry in default window menus");
-			count = 0;
-		}
+		array = iapp->window_menus;
 	} else {
 		/* Find the location in the desktop menu */
 		if (iapp->desktop_menu != NULL) {
-			count = window_menus_get_location(iapp->desktop_menu, entry);
+			array = iapp->application_menus;
 		}
 	}
+
+	/* Find the location in the array */
+	if (array != NULL) {
+		for (count = 0; count < array->len; count++) {
+			if (entry == &g_array_index(array, IndicatorObjectEntry, count)) {
+				break;
+			}
+		}
+		if (count == array->len) {
+			g_warning("Unable to find entry in exported menus");
+			count = 0;
+		}
+	} else {
+		g_warning("Looking for menus and we're not exporting any?");
+	}
+
 	return count;
 }
 
@@ -966,6 +1115,7 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
+<<<<<<< TREE
 /* Switch applications, remove all the entires for the previous
    one and add them for the new application */
 static void
@@ -989,15 +1139,202 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 	/* hide the entries that we're swapping out */
 	indicator_object_set_visible (INDICATOR_OBJECT(iapp), FALSE);
 	
+=======
+/* Find the label in a GTK MenuItem */
+GtkLabel *
+mi_find_label (GtkWidget * mi)
+{
+	if (GTK_IS_LABEL(mi)) {
+		return GTK_LABEL(mi);
+	}
+
+	GtkLabel * retval = NULL;
+
+	if (GTK_IS_CONTAINER(mi)) {
+		GList * children = gtk_container_get_children(GTK_CONTAINER(mi));
+		GList * child = children;
+
+		while (child != NULL && retval == NULL) {
+			if (GTK_IS_WIDGET(child->data)) {
+				retval = mi_find_label(GTK_WIDGET(child->data));
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
+	}
+
+	return retval;
+}
+
+/* Find the icon in a GTK MenuItem */
+GtkImage *
+mi_find_icon (GtkWidget * mi)
+{
+	if (GTK_IS_IMAGE(mi)) {
+		return GTK_IMAGE(mi);
+	}
+
+	GtkImage * retval = NULL;
+
+	if (GTK_IS_CONTAINER(mi)) {
+		GList * children = gtk_container_get_children(GTK_CONTAINER(mi));
+		GList * child = children;
+
+		while (child != NULL && retval == NULL) {
+			if (GTK_IS_WIDGET(child->data)) {
+				retval = mi_find_icon(GTK_WIDGET(child->data));
+			}
+			child = g_list_next(child);
+		}
+
+		g_list_free(children);
+	}
+
+	return retval;
+}
+
+/* Check the menu and make sure we return it if it's a menu
+   all proper like that */
+GtkMenu *
+mi_find_menu (GtkMenuItem * mi)
+{
+	GtkWidget * retval = gtk_menu_item_get_submenu(mi);
+	if (GTK_IS_MENU(retval)) {
+		return GTK_MENU(retval);
+	} else {
+		return NULL;
+	}
+}
+
+/* Add an entry to the array with either the items that are in the
+   parameter list, or if they're undefined then we need to find
+   them here. */
+static gboolean
+add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
+{
+	if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
+		return FALSE;
+	}
+
+	if (label == NULL && icon == NULL && sub == NULL) {
+		label = mi_find_label(GTK_WIDGET(mi));
+		icon = mi_find_icon(GTK_WIDGET(mi));
+		sub = mi_find_menu(mi);
+	}
+
+	/* We need to build a new entry to handle the menuitem */
+	IndicatorObjectEntry newentry = {
+		parent_object: INDICATOR_OBJECT(iapp),
+		label: label,
+		image: icon,
+		menu: sub,
+		accessible_desc: NULL,
+		name_hint: "application-menus"
+	};
+
+	g_array_insert_val(iapp->application_menus, i, newentry);
+	IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
+
+	return TRUE;
+}
+
+/* Take a GtkMenu and make it into our entries */
+static void
+sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
+{
+	GList * children = NULL;
+
+	if (GTK_IS_CONTAINER(menu)) {
+		children = gtk_container_get_children(GTK_CONTAINER(menu));
+	}
+
+	GList * child = children;
+	guint i = 0;
+
+	/* Let's go through entries as we have them */
+	while (i < iapp->application_menus->len && child != NULL) {
+		GtkMenuItem * mi = NULL;
+
+		/* If it's not a menu item, move along the list */
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			mi = GTK_MENU_ITEM(child->data);
+		} else {
+			child = g_list_next(child);
+			continue;
+		}
+
+		if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
+			/* If it's not visible we want to skip it */
+			child = g_list_next(child);
+			continue;
+		}
+
+		GtkLabel * label = NULL;
+		GtkImage * icon = NULL;
+		GtkMenu * sub = NULL;
+		if (GTK_IS_MENU_ITEM(mi)) {
+			label = mi_find_label(GTK_WIDGET(mi));
+			icon = mi_find_icon(GTK_WIDGET(mi));
+			sub = mi_find_menu(mi);
+		}
+
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		/* Check to see if we're the same */
+		if (entry->label == label && entry->image == icon && entry->menu == sub) {
+			/* If we are move both pointers and continue */
+			i++;
+			child = g_list_next(child);
+			continue;
+		}
+
+		if (add_entry(iapp, mi, i, label, icon, sub)) {
+			/* Go to the entry that is after the one we
+			   just inserted */
+			i++;
+		}
+
+		child = g_list_next(child);
+	}
+
+	while (i < iapp->application_menus->len) {
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
+
+		g_array_remove_index(iapp->application_menus, i);
+	}
+
+	while (child != NULL) {
+		GtkMenuItem * mi = NULL;
+
+		/* If it's not a menu item, move along the list */
+		if (GTK_IS_MENU_ITEM(child->data)) {
+			mi = GTK_MENU_ITEM(child->data);
+		} else {
+			child = g_list_next(child);
+			continue;
+		}
+
+		add_entry(iapp, mi, iapp->application_menus->len, NULL, NULL, NULL);
+
+		child = g_list_next(child);
+	}
+
+	g_list_free(children);
+
+	return;
+}
+
+/* If we're displaying a list of entries we need to remove those before
+   we could switch to a different set of entries */
+static void
+disconnect_current_signals (IndicatorAppmenu * iapp)
+{
+>>>>>>> MERGE-SOURCE
 	/* Disconnect signals */
-	if (iapp->sig_entry_added != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_added);
-		iapp->sig_entry_added = 0;
-	}
-	if (iapp->sig_entry_removed != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_entry_removed);
-		iapp->sig_entry_removed = 0;
-	}
 	if (iapp->sig_status_changed != 0) {
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_status_changed);
 		iapp->sig_status_changed = 0;
@@ -1006,10 +1343,92 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_show_menu);
 		iapp->sig_show_menu = 0;
 	}
-	if (iapp->sig_a11y_update != 0) {
-		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_a11y_update);
-		iapp->sig_a11y_update = 0;
+	if (iapp->sig_menu_changed != 0) {
+		g_signal_handler_disconnect(G_OBJECT(iapp->default_app), iapp->sig_menu_changed);
+		iapp->sig_menu_changed = 0;
 	}
+
+	return;
+}
+
+/* Put back some entries to ensure we've got something to click on!  This might
+   be the stubs in some cases */
+static void
+reconnect_signals (IndicatorAppmenu * iapp)
+{
+	/* If we're putting up a new window, let's do that now. */
+	if (iapp->default_app != NULL) {
+		/* Connect signals */
+		iapp->sig_status_changed = g_signal_connect(G_OBJECT(iapp->default_app),
+		                                           WINDOW_MENUS_SIGNAL_STATUS_CHANGED,
+		                                           G_CALLBACK(window_status_changed),
+		                                           iapp);
+		iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
+		                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
+		                                           G_CALLBACK(window_show_menu),
+		                                           iapp);
+		iapp->sig_menu_changed  = g_signal_connect(G_OBJECT(iapp->default_app),
+		                                           WINDOW_MENUS_SIGNAL_MENU_CHANGED,
+		                                           G_CALLBACK(window_menu_changed),
+		                                           iapp);
+	}
+
+<<<<<<< TREE
+	/* show the entries that we're swapping in */
+	indicator_object_set_visible (INDICATOR_OBJECT(iapp), TRUE);
+
+=======
+>>>>>>> MERGE-SOURCE
+		/* Set up initial state for new entries if needed */
+	if (iapp->default_app != NULL &&
+            window_menus_get_status (iapp->default_app) != DBUSMENU_STATUS_NORMAL) {
+		window_status_changed (iapp->default_app,
+		                       window_menus_get_status (iapp->default_app),
+		                       iapp);
+	}
+
+	return;
+}
+
+/* Small little function to go through the logic of what
+   menus we should be using. */
+GtkMenu *
+get_current_menu (IndicatorAppmenu * iapp)
+{
+	GtkMenu * menus = NULL;
+
+	if (iapp->default_app != NULL) {
+		menus = window_menus_get_menu(iapp->default_app);
+	}
+
+	if (menus == NULL && iapp->active_window == NULL) {
+		menus = window_menus_get_menu(iapp->desktop_menu);
+	}
+
+	return menus;
+}
+
+/* Switch applications, remove all the entires for the previous
+   one and add them for the new application */
+static void
+switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * active_window)
+{
+	if (iapp->default_app == newdef && iapp->default_app != NULL) {
+		/* We've got an app with menus and it hasn't changed. */
+
+		/* Keep active window up-to-date, though we're probably not
+		   using it much. */
+		switch_active_window(iapp, active_window);
+		return;
+	}
+
+	if (iapp->default_app == NULL && iapp->active_window == active_window && newdef == NULL) {
+		/* There's no application menus, but the active window hasn't
+		   changed.  So there's no change. */
+		return;
+	}
+
+	disconnect_current_signals(iapp);
 
 	/* Default App is NULL, let's see if it needs replacement */
 	iapp->default_app = NULL;
@@ -1021,39 +1440,24 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenus * newdef, BamfWindow * 
 	if (newdef != NULL) {
 		/* Switch */
 		iapp->default_app = newdef;
-
-		/* Connect signals */
-		iapp->sig_entry_added =   g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_ENTRY_ADDED,
-		                                           G_CALLBACK(window_entry_added),
-		                                           iapp);
-		iapp->sig_entry_removed = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_ENTRY_REMOVED,
-		                                           G_CALLBACK(window_entry_removed),
-		                                           iapp);
-		iapp->sig_status_changed = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_STATUS_CHANGED,
-		                                           G_CALLBACK(window_status_changed),
-		                                           iapp);
-		iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
-		                                           G_CALLBACK(window_show_menu),
-		                                           iapp);
-		iapp->sig_a11y_update   = g_signal_connect(G_OBJECT(iapp->default_app),
-		                                           WINDOW_MENUS_SIGNAL_A11Y_UPDATE,
-		                                           G_CALLBACK(window_a11y_update),
-		                                           iapp);
 	}
 
-	/* show the entries that we're swapping in */
-	indicator_object_set_visible (INDICATOR_OBJECT(iapp), TRUE);
+	GtkMenu * menus = get_current_menu(iapp);
 
-		/* Set up initial state for new entries if needed */
-	if (iapp->default_app != NULL &&
-            window_menus_get_status (iapp->default_app) != DBUSMENU_STATUS_NORMAL) {
-		window_status_changed (iapp->default_app,
-		                       window_menus_get_status (iapp->default_app),
-		                       iapp);
+	if (iapp->menu_mode == MENU_MODE_SEVERAL) {
+		sync_menu_to_app_entries(iapp, menus);	
+		reconnect_signals(iapp);
+	} else {
+		iapp->single_menu.menu = menus;
+
+		gtk_widget_set_sensitive(GTK_WIDGET(iapp->single_menu.image), menus != NULL);
+
+		if (iapp->default_app != NULL) {
+			iapp->sig_show_menu     = g_signal_connect(G_OBJECT(iapp->default_app),
+			                                           WINDOW_MENUS_SIGNAL_SHOW_MENU,
+			                                           G_CALLBACK(single_show_menu),
+			                                           iapp);
+		}
 	}
 
 	return;
@@ -1322,22 +1726,6 @@ bus_method_call (GDBusConnection * connection, const gchar * sender,
 	return;
 }
 
-/* Pass up the entry added event */
-static void
-window_entry_added (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
-	return;
-}
-
-/* Pass up the entry removed event */
-static void
-window_entry_removed (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
-{
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
-	return;
-}
-
 /* Pass up the status changed event */
 static void
 window_status_changed (WindowMenus * mw, DbusmenuStatus status, IndicatorAppmenu * iapp)
@@ -1355,19 +1743,50 @@ window_status_changed (WindowMenus * mw, DbusmenuStatus status, IndicatorAppmenu
 	return;
 }
 
-/* Pass up the show menu event */
+/* when we show a menu in the single menu case we just want to
+   ensure that we signal the single menu is being shown so that
+   the panel can place it correctly. */
 static void
-window_show_menu (WindowMenus * mw, IndicatorObjectEntry * entry, guint timestamp, gpointer user_data)
+single_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointer user_data)
 {
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, &(iapp->single_menu), timestamp);
 	return;
 }
 
-/* Pass up the accessible string update */
+/* Pass up the show menu event */
 static void
-window_a11y_update (WindowMenus * mw, IndicatorObjectEntry * entry, gpointer user_data)
+window_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointer user_data)
 {
-	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ACCESSIBLE_DESC_UPDATE, entry);
+	if (item == NULL) {
+		g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, NULL, timestamp);
+		return;
+	}
+
+	GtkMenu * sub = GTK_MENU(gtk_menu_item_get_submenu(item));
+	if (sub == NULL) {
+		return;
+	}
+
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+	int i;
+	for (i = 0; i < iapp->application_menus->len; i++) {
+		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+
+		if (entry->menu == sub) {
+			g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+			break;
+		}
+	}
+
+	return;
+}
+
+/* Pass up the show menu event */
+static void
+window_menu_changed (WindowMenus * mw, gpointer user_data)
+{
+	sync_menu_to_app_entries(INDICATOR_APPMENU(user_data), window_menus_get_menu(mw));
 	return;
 }
 

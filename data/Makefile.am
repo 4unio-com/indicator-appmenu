@@ -1,3 +1,8 @@
+iconsdir = \
+	$(datadir)/icons/hicolor/scalable/status
+
+icons_DATA = \
+	indicator-appmenu-menu-panel.svg
 
 gsettings_in_files = \
     com.canonical.indicator.appmenu.gschema.xml.in \
@@ -17,6 +22,7 @@ dbus_services_DATA = com.canonical.hud.service
 	sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@
 
 EXTRA_DIST = \
+	$(icons_DATA) \
 	$(dbus_services_DATA:.service=.service.in) \
 	$(gsettings_in_files)
 
