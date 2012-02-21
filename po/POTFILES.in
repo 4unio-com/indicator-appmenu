@@ -6,9 +6,3 @@ src/indicator-tracker.c
 src/hud-dbus.c
 src/menuitem-collector.c
 src/usage-tracker.c
-src/hud.interface.c
-src/hud-search.c
-src/hud-cli.c
-src/distance.c
-src/load-app-info.c
-src/dump-app-info.c
