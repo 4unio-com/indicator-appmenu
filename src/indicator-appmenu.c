@@ -1275,11 +1275,17 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 		child = g_list_next(child);
 	}
 
+	gint start_removal = i;
 	while (i < iapp->application_menus->len) {
 		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
 
 		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
 
+		i++;
+	}
+
+	i = start_removal;
+	while (i < iapp->application_menus->len) {
 		g_array_remove_index(iapp->application_menus, i);
 	}
 
