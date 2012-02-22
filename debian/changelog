@@ -1,3 +1,9 @@
+indicator-appmenu (0.3.91-0~170~precise1~ppa1) precise; urgency=low
+
+  * Bump Version
+
+ -- Sam Spilsbury <sam.spilsbury@canonical.com>  Wed, 22 Feb 2012 08:19:53 +0800
+
 indicator-appmenu (0.3.91-0ubuntu2) precise; urgency=low
 
   * Bump Version
