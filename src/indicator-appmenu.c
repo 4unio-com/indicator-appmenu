@@ -102,7 +102,7 @@ struct _IndicatorAppmenu {
 	GtkMenuItem * close_item;
 
 	GArray * window_menus;
-	GArray * application_menus;
+	GList * application_menus;
 
 	GHashTable * desktop_windows;
 	WindowMenus * desktop_menu;
@@ -218,6 +218,8 @@ static gboolean settings_schema_exists                               (const gcha
 GtkMenu * get_current_menu                                           (IndicatorAppmenu * iapp);
 static void sync_menu_to_app_entries                                 (IndicatorAppmenu * iapp,
                                                                       GtkMenu * menu);
+static void remove_entry                                             (IndicatorAppmenu * iapp,
+                                                                      GList * item);
 
 /* Unique error codes for debug interface */
 enum {
@@ -304,7 +306,7 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->single_menu.name_hint = "application-menus";
 
 	/* Setup the entries for applications */
-	self->application_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 10); /* 10 entries should be enough for anyone */
+	self->application_menus = NULL;
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
@@ -459,6 +461,10 @@ indicator_appmenu_dispose (GObject *object)
 		iapp->dbus_registration = 0;
 	}
 
+	while (iapp->application_menus != NULL) {
+		remove_entry(iapp, iapp->application_menus);
+	}
+
 	if (iapp->destruction_timers != NULL) {
 		/* These are in dispose and not finalize becuase the dereference
 		   function removes timers that could need the object to be in
@@ -523,11 +529,6 @@ static void
 indicator_appmenu_finalize (GObject *object)
 {
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(object);
-
-	if (iapp->application_menus != NULL) {
-		g_array_free(iapp->application_menus, TRUE);
-		iapp->application_menus = NULL;
-	}
 
 	if (iapp->window_menus != NULL) {
 		if (iapp->window_menus->len != 0) {
@@ -907,13 +908,13 @@ get_entries (IndicatorObject * io)
 
 	/* If we have a focused app with menus, use it's windows */
 	if (iapp->default_app != NULL) {
-		return entry_array_to_list(iapp->application_menus);
+		return iapp->application_menus;
 	}
 
 	/* Else, let's go with desktop windows if there isn't a focused window.
 	   They should already be put in the application menus if that's the case */
 	if (iapp->active_window == NULL) {
-		return entry_array_to_list(iapp->application_menus);
+		return iapp->application_menus;
 	}
 
 	/* Oh, now we're looking at stubs. */
@@ -954,16 +955,17 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(io);
 
 	GArray * array = NULL;
+	GList * list = NULL;
 
 	if (iapp->default_app != NULL) {
 		/* Find the location in the app */
-		array = iapp->application_menus;
+		list = iapp->application_menus;
 	} else if (iapp->active_window != NULL) {
 		array = iapp->window_menus;
 	} else {
 		/* Find the location in the desktop menu */
 		if (iapp->desktop_menu != NULL) {
-			array = iapp->application_menus;
+			list = iapp->application_menus;
 		}
 	}
 
@@ -975,6 +977,17 @@ get_location (IndicatorObject * io, IndicatorObjectEntry * entry)
 			}
 		}
 		if (count == array->len) {
+			g_warning("Unable to find entry in exported menus");
+			count = 0;
+		}
+	/* If we've got a list look there */
+	} else if (list != NULL) {
+		GList * head = list;
+		while (head != NULL && head->data != entry) {
+			count++;
+			head = g_list_next(head);
+		}
+		if (head == NULL) {
 			g_warning("Unable to find entry in exported menus");
 			count = 0;
 		}
@@ -1183,11 +1196,20 @@ mi_find_menu (GtkMenuItem * mi)
 	}
 }
 
+/* Remove an entry from the list and signal appropriately */
+static void
+remove_entry (IndicatorAppmenu * iapp, GList * item)
+{
+	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, item->data);
+	iapp->application_menus = g_list_delete_link(iapp->application_menus, item);
+	return;
+}
+
 /* Add an entry to the array with either the items that are in the
    parameter list, or if they're undefined then we need to find
    them here. */
 static gboolean
-add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
+add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, GList * before, GtkLabel * label, GtkImage * icon, GtkMenu * sub)
 {
 	if (!gtk_widget_get_visible(GTK_WIDGET(mi))) {
 		return FALSE;
@@ -1200,17 +1222,20 @@ add_entry (IndicatorAppmenu * iapp, GtkMenuItem * mi, gint i, GtkLabel * label, 
 	}
 
 	/* We need to build a new entry to handle the menuitem */
-	IndicatorObjectEntry newentry = {
-		parent_object: INDICATOR_OBJECT(iapp),
-		label: label,
-		image: icon,
-		menu: sub,
-		accessible_desc: NULL,
-		name_hint: "application-menus"
-	};
+	IndicatorObjectEntry * entry = g_new0(IndicatorObjectEntry, 1);
+	entry->parent_object = INDICATOR_OBJECT(iapp);
+	entry->label = label;
+	entry->image = icon;
+	entry->menu = sub;
+	entry->accessible_desc = NULL;
+	entry->name_hint = "application-menus";
 
-	g_array_insert_val(iapp->application_menus, i, newentry);
-	IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+	if (before != NULL) {
+		iapp->application_menus = g_list_insert_before(iapp->application_menus, before, entry);
+	} else {
+		iapp->application_menus = g_list_append(iapp->application_menus, entry);
+	}
+
 	g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
 
 	return TRUE;
@@ -1227,10 +1252,11 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 	}
 
 	GList * child = children;
+	GList * apphead = iapp->application_menus;
 	guint i = 0;
 
 	/* Let's go through entries as we have them */
-	while (i < iapp->application_menus->len && child != NULL) {
+	while (apphead != NULL && child != NULL) {
 		GtkMenuItem * mi = NULL;
 
 		/* If it's not a menu item, move along the list */
@@ -1261,32 +1287,28 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 		/* Check to see if we're the same */
 		if (entry->label == label && entry->image == icon && entry->menu == sub) {
 			/* If we are move both pointers and continue */
-			i++;
+			apphead = g_list_next(apphead);
 			child = g_list_next(child);
 			continue;
 		}
 
-		if (add_entry(iapp, mi, i, label, icon, sub)) {
-			/* Go to the entry that is after the one we
-			   just inserted */
-			i++;
-		}
-
+		add_entry(iapp, mi, apphead, label, icon, sub);
 		child = g_list_next(child);
 	}
 
-	gint start_removal = i;
-	while (i < iapp->application_menus->len) {
-		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
-
-		g_signal_emit_by_name(G_OBJECT(iapp), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
-
-		i++;
+	GList * prev = NULL;
+	if (apphead != NULL) {
+		prev = g_list_previous(apphead);
 	}
 
-	i = start_removal;
-	while (i < iapp->application_menus->len) {
-		g_array_remove_index(iapp->application_menus, i);
+	while (apphead != NULL) {
+		remove_entry(iapp, apphead);
+
+		if (prev != NULL) {
+			apphead = g_list_next(prev);
+		} else {
+			apphead = iapp->application_menus;
+		}
 	}
 
 	while (child != NULL) {
@@ -1300,7 +1322,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			continue;
 		}
 
-		add_entry(iapp, mi, iapp->application_menus->len, NULL, NULL, NULL);
+		add_entry(iapp, mi, NULL, NULL, NULL, NULL);
 
 		child = g_list_next(child);
 	}
@@ -1744,9 +1766,9 @@ window_show_menu (WindowMenus * mw, GtkMenuItem * item, guint timestamp, gpointe
 	}
 
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
-	int i;
-	for (i = 0; i < iapp->application_menus->len; i++) {
-		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+	GList * lentry;
+	for (lentry = iapp->application_menus; lentry != NULL; lentry = g_list_next(lentry)) {
+		IndicatorObjectEntry * entry = (IndicatorObjectEntry *)lentry->data;
 
 		if (entry->menu == sub) {
 			g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
