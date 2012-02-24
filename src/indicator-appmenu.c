@@ -1466,9 +1466,10 @@ active_window_changed (BamfMatcher * matcher, BamfView * oldview, BamfView * new
 {
 	BamfWindow * window = NULL;
 
-	if (newview != NULL) {
-		window = BAMF_WINDOW(newview);
-		if (window == NULL) {
+	if (newview != NULL && BAMF_IS_WINDOW(newview)) {
+		if (BAMF_IS_WINDOW(newview)) {
+			window = BAMF_WINDOW(newview);
+		} else {
 			g_warning("Active window changed to View thats not a window.");
 		}
 	} else {
