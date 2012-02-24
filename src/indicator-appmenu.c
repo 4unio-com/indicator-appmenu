@@ -1253,7 +1253,6 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 
 	GList * child = children;
 	GList * apphead = iapp->application_menus;
-	guint i = 0;
 
 	/* Let's go through entries as we have them */
 	while (apphead != NULL && child != NULL) {
@@ -1282,7 +1281,7 @@ sync_menu_to_app_entries (IndicatorAppmenu * iapp, GtkMenu * menu)
 			sub = mi_find_menu(mi);
 		}
 
-		IndicatorObjectEntry * entry = &g_array_index(iapp->application_menus, IndicatorObjectEntry, i);
+		IndicatorObjectEntry * entry = (IndicatorObjectEntry *)apphead->data;
 
 		/* Check to see if we're the same */
 		if (entry->label == label && entry->image == icon && entry->menu == sub) {
