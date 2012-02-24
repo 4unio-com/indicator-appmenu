@@ -908,13 +908,13 @@ get_entries (IndicatorObject * io)
 
 	/* If we have a focused app with menus, use it's windows */
 	if (iapp->default_app != NULL) {
-		return iapp->application_menus;
+		return g_list_copy(iapp->application_menus);
 	}
 
 	/* Else, let's go with desktop windows if there isn't a focused window.
 	   They should already be put in the application menus if that's the case */
 	if (iapp->active_window == NULL) {
-		return iapp->application_menus;
+		return g_list_copy(iapp->application_menus);
 	}
 
 	/* Oh, now we're looking at stubs. */
