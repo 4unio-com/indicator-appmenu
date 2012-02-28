@@ -392,6 +392,14 @@ window_menus_new (const guint windowid, const gchar * dbus_addr, const gchar * d
 	                  G_CALLBACK (item_removed_cb),
 	                  newmenu); 
 
+	GList * children = gtk_container_get_children(GTK_CONTAINER(priv->menu));
+	GList * child = NULL;
+	for (child = children; child != NULL; child = g_list_next(child)) {
+		g_signal_connect(G_OBJECT(child->data), "show", G_CALLBACK(item_visibility_cb), newmenu);
+		g_signal_connect(G_OBJECT(child->data), "hide", G_CALLBACK(item_visibility_cb), newmenu);
+	}
+	g_list_free(children);
+
 	DbusmenuMenuitem * root = dbusmenu_client_get_root(DBUSMENU_CLIENT(priv->client));
 	if (root != NULL) {
 		root_changed(DBUSMENU_CLIENT(priv->client), root, newmenu);
