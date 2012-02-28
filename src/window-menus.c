@@ -308,7 +308,7 @@ window_menus_get_status (WindowMenus * wm)
 
 /* Menuitem visibility changes */
 static void
-item_visibility_cb (GObject * obj, GParamSpec * pspec, gpointer user_data)
+item_visibility_cb (GObject * obj, gpointer user_data)
 {
 	g_signal_emit(G_OBJECT(user_data), signals[MENU_CHANGED], 0, TRUE);
 	return;
@@ -324,7 +324,8 @@ item_inserted_cb (GtkContainer *menu,
 #endif
                   gpointer      user_data)
 {
-	g_signal_connect(G_OBJECT(widget), "notify::visible", G_CALLBACK(item_visibility_cb), user_data);
+	g_signal_connect(G_OBJECT(widget), "show", G_CALLBACK(item_visibility_cb), user_data);
+	g_signal_connect(G_OBJECT(widget), "hide", G_CALLBACK(item_visibility_cb), user_data);
 	g_signal_emit(G_OBJECT(user_data), signals[MENU_CHANGED], 0, TRUE);
 	return;
 }
