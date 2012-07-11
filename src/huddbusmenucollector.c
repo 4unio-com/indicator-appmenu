@@ -302,6 +302,7 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     gpointer item;
     DocumentID id = 0;
     ColWord field = col_word_new("text");
+    GPtrArray *arr = g_ptr_array_new();
 
     g_hash_table_iter_init (&iter, collector->items);
     while (g_hash_table_iter_next (&iter, NULL, &item))
@@ -310,10 +311,11 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
         HudStringList *l;
         ColDocument d = col_document_new(id++);
         l = hud_item_get_tokens(i);
-        printf("MCS: %s\n", hud_string_list_pretty_print(l));
+        /*printf("MCS: %s\n", hud_string_list_pretty_print(l));*/
         col_document_add_text(d, field, hud_string_list_pretty_print(l));
         col_corpus_add_document(c, d);
         col_document_delete(d);
+        g_ptr_array_add(arr, l);
       }
     col_word_delete(field);
     col_matcher_index(m, c);
@@ -321,6 +323,7 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
 
     /* Do matching here. */
     col_matcher_delete(m);
+    g_ptr_array_free(arr, TRUE);
 }
 
 static void
