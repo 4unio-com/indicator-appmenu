@@ -293,10 +293,22 @@ hud_dbusmenu_collector_unuse (HudSource *source)
 #include<columbus.h>
 
 /*
- * Unused function to test linkage.
+ * Do the search using Columbus. Just print out the results.
  */
-void dummy() {
+static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_string) {
     ColMatcher m = col_matcher_new();
+    GHashTableIter iter;
+    gpointer item;
+
+    g_hash_table_iter_init (&iter, collector->items);
+    while (g_hash_table_iter_next (&iter, NULL, &item))
+      {
+        HudItem *i = item;
+        HudStringList *l;
+        l = hud_item_get_tokens(i);
+        printf("MCS: %s\n", hud_string_list_pretty_print(l));
+
+      }
     col_matcher_delete(m);
 }
 
@@ -309,14 +321,11 @@ hud_dbusmenu_collector_search (HudSource    *source,
   GHashTableIter iter;
   gpointer item;
 
+  search_col(collector, search_string);
   g_hash_table_iter_init (&iter, collector->items);
   while (g_hash_table_iter_next (&iter, NULL, &item))
     {
       HudResult *result;
-      HudItem *i = item;
-      HudStringList *l;
-      l = hud_item_get_tokens(i);
-      printf("MCS: %s\n", hud_string_list_pretty_print(l));
 
       result = hud_result_get_if_matched (item, search_string, collector->penalty);
       if (result)
