@@ -201,9 +201,13 @@ hud_token_free (HudToken *token)
 }
 
 static const gchar *
-hud_token_get_original (HudToken *token)
+hud_token_get_original (const HudToken *token)
 {
   return token->original;
+}
+
+const gchar* hud_token_get_string(const HudToken *token) {
+    return hud_token_get_original(token);
 }
 
 struct _HudTokenList

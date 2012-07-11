@@ -289,6 +289,7 @@ hud_dbusmenu_collector_unuse (HudSource *source)
   collector->reentrance_check = FALSE;
 }
 
+#include<stdio.h>
 static void
 hud_dbusmenu_collector_search (HudSource    *source,
                                GPtrArray    *results_array,
@@ -302,6 +303,10 @@ hud_dbusmenu_collector_search (HudSource    *source,
   while (g_hash_table_iter_next (&iter, NULL, &item))
     {
       HudResult *result;
+      HudItem *i = item;
+      HudStringList *l;
+      l = hud_item_get_tokens(i);
+      printf("MCS: %s\n", hud_string_list_pretty_print(l));
 
       result = hud_result_get_if_matched (item, search_string, collector->penalty);
       if (result)

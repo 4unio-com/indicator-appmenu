@@ -200,6 +200,7 @@ hud_query_class_init (HudQueryClass *class)
  *
  * Returns: the new #HudQuery
  **/
+#include<stdio.h>
 HudQuery *
 hud_query_new (HudSource   *source,
                const gchar *search_string,
@@ -207,7 +208,7 @@ hud_query_new (HudSource   *source,
 {
   HudQuery *query;
 
-  g_debug ("Created query '%s'", search_string);
+  printf ("Created query '%s'\n", search_string);
 
   query = g_object_new (HUD_TYPE_QUERY, NULL);
   query->source = g_object_ref (source);
