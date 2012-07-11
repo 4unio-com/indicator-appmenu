@@ -343,10 +343,12 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
       }
     col_word_delete(field);
     col_matcher_index(m, c);
+    col_error_values_add_standard_errors(col_matcher_get_error_values(m));
     col_corpus_delete(c);
 
     /* Do matching */
     printf("Querying: %s\n", query->str);
+    col_matcher_match(m, query->str, results);
     printf("Got %ld matches\n", col_match_results_size(results));
 
     /* Cleanup */
