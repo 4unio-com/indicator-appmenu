@@ -293,6 +293,28 @@ hud_dbusmenu_collector_unuse (HudSource *source)
 #include<columbus.h>
 
 /*
+ * This is Evil and you should never, ever do it elsewhere, mmm'kay?
+ */
+
+struct _HudTokenList
+{
+  HudToken **tokens;
+  gint       length;
+};
+
+static GString * build_querystring(HudTokenList *search_string) {
+    GString *q = g_string_new(NULL);
+    gint i;
+
+    for(i=0; i<search_string->length; i++) {
+        HudToken *t = search_string->tokens[i];
+        g_string_append(q, hud_token_get_string(t));
+        g_string_append(q, " ");
+    }
+    return q;
+}
+
+/*
  * Do the search using Columbus. Just print out the results.
  */
 static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_string) {
@@ -304,6 +326,7 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     ColWord field = col_word_new("text");
     ColMatchResults results = col_match_results_new();
     GPtrArray *arr = g_ptr_array_new();
+    GString *query = build_querystring(search_string);
 
     g_hash_table_iter_init (&iter, collector->items);
     while (g_hash_table_iter_next (&iter, NULL, &item))
@@ -323,9 +346,11 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     col_corpus_delete(c);
 
     /* Do matching */
+    printf("Querying: %s\n", query->str);
     printf("Got %ld matches\n", col_match_results_size(results));
 
     /* Cleanup */
+    g_string_free(query, TRUE);
     col_matcher_delete(m);
     col_match_results_delete(results);
     g_ptr_array_free(arr, TRUE);
