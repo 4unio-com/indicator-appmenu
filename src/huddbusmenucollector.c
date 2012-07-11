@@ -302,6 +302,7 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     gpointer item;
     DocumentID id = 0;
     ColWord field = col_word_new("text");
+    ColMatchResults results = col_match_results_new();
     GPtrArray *arr = g_ptr_array_new();
 
     g_hash_table_iter_init (&iter, collector->items);
@@ -321,8 +322,12 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     col_matcher_index(m, c);
     col_corpus_delete(c);
 
-    /* Do matching here. */
+    /* Do matching */
+    printf("Got %ld matches\n", col_match_results_size(results));
+
+    /* Cleanup */
     col_matcher_delete(m);
+    col_match_results_delete(results);
     g_ptr_array_free(arr, TRUE);
 }
 
