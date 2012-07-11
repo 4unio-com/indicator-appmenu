@@ -297,18 +297,29 @@ hud_dbusmenu_collector_unuse (HudSource *source)
  */
 static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_string) {
     ColMatcher m = col_matcher_new();
+    ColCorpus c = col_corpus_new();
     GHashTableIter iter;
     gpointer item;
+    DocumentID id = 0;
+    ColWord field = col_word_new("text");
 
     g_hash_table_iter_init (&iter, collector->items);
     while (g_hash_table_iter_next (&iter, NULL, &item))
       {
         HudItem *i = item;
         HudStringList *l;
+        ColDocument d = col_document_new(id++);
         l = hud_item_get_tokens(i);
         printf("MCS: %s\n", hud_string_list_pretty_print(l));
-
+        col_document_add_text(d, field, hud_string_list_pretty_print(l));
+        col_corpus_add_document(c, d);
+        col_document_delete(d);
       }
+    col_word_delete(field);
+    col_matcher_index(m, c);
+    col_corpus_delete(c);
+
+    /* Do matching here. */
     col_matcher_delete(m);
 }
 
