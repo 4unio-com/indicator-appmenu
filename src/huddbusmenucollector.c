@@ -290,6 +290,16 @@ hud_dbusmenu_collector_unuse (HudSource *source)
 }
 
 #include<stdio.h>
+#include<columbus.h>
+
+/*
+ * Unused function to test linkage.
+ */
+void dummy() {
+    ColMatcher m = col_matcher_new();
+    col_matcher_delete(m);
+}
+
 static void
 hud_dbusmenu_collector_search (HudSource    *source,
                                GPtrArray    *results_array,

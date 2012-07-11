@@ -144,6 +144,7 @@ hud_service_SOURCES = hud-service.c
 libhud_service_a_CFLAGS = \
 	$(HUD_CFLAGS) \
 	$(COVERAGE_CFLAGS) \
+	$(COLUMBUS_CFLAGS) \
 	-DDATADIR=\""$(datadir)"\" \
 	-Wall -Werror
 hud_service_CFLAGS = \
@@ -153,7 +154,9 @@ hud_service_CFLAGS = \
 	-Wall -Werror
 hud_service_LDADD = \
 	libhud-service.a	\
-	$(HUD_LIBS)
+	$(HUD_LIBS) \
+	$(COLUMBUS_LIBS)
+
 hud_service_LDFLAGS = \
 	$(COVERAGE_LDFLAGS)
 

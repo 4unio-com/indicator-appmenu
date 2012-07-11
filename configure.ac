@@ -69,6 +69,7 @@ PKG_CHECK_MODULES(INDICATOR,  gtk+-3.0 >= $GTK_REQUIRED_VERSION
                               indicator3-0.4 >= $INDICATOR_REQUIRED_VERSION
                               dbusmenu-gtk3-0.4 >= $DBUSMENUGTK_REQUIRED_VERSION
                               libbamf3 >= $BAMF_REQUIRED_VERSION)
+PKG_CHECK_MODULES(COLUMBUS, libcolumbus)
 AC_SUBST(INDICATOR_CFLAGS)
 AC_SUBST(INDICATOR_LIBS)
 
