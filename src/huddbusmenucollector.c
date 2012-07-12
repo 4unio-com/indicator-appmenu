@@ -327,22 +327,28 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     ColMatchResults results = col_match_results_new();
     GPtrArray *arr = g_ptr_array_new();
     GString *query = build_querystring(search_string);
+    size_t num_matches, i;
+    const size_t max_matches = 5;
 
     g_hash_table_iter_init (&iter, collector->items);
     while (g_hash_table_iter_next (&iter, NULL, &item))
       {
         HudItem *i = item;
         HudStringList *l;
-        const char *doc_text;
+        const char *full_text;
+        const char *command;
+
         ColDocument d;
 
         l = hud_item_get_tokens(i);
-        doc_text = hud_string_list_pretty_print(l);
-        if(!strchr(doc_text, '>')) // Skip top level menus because they are uninteresting.
+        full_text = hud_string_list_pretty_print(l);
+        command = strrchr(full_text, '>');
+        if(!command) // Skip top level menus.
             continue;
-        printf("MCS: %s\n", doc_text);
+        command++;
+        /*printf("MCS: %s\n", command);*/
         d = col_document_new(id++);
-        col_document_add_text(d, field, doc_text);
+        col_document_add_text(d, field, command);
         col_corpus_add_document(c, d);
         col_document_delete(d);
         g_ptr_array_add(arr, l);
@@ -356,7 +362,13 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     /* Do matching */
     printf("Querying: %s\n", query->str);
     col_matcher_match(m, query->str, results);
-    printf("Got %ld matches\n", col_match_results_size(results));
+    num_matches = col_match_results_size(results);
+    printf("Got %ld matches\n", num_matches);
+    for(i=0; i<MIN(num_matches, max_matches); i++) {
+        size_t index = col_match_results_get_id(results, i);
+        HudStringList *l = g_ptr_array_index(arr, index);
+        printf(" %s\n", hud_string_list_pretty_print(l));
+    }
 
     /* Cleanup */
     g_string_free(query, TRUE);
