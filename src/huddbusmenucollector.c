@@ -366,7 +366,7 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     printf("Querying: %s\n", query->str);
     col_matcher_match(m, query->str, results);
     num_matches = col_match_results_size(results);
-    printf("Got %ld matches\n", num_matches);
+    printf("Got %u matches\n", num_matches);
     for(i=0; i<MIN(num_matches, max_matches); i++) {
         size_t index = col_match_results_get_id(results, i);
         HudStringList *l = g_ptr_array_index(arr, index);
