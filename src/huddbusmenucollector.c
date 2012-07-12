@@ -333,10 +333,16 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
       {
         HudItem *i = item;
         HudStringList *l;
-        ColDocument d = col_document_new(id++);
+        const char *doc_text;
+        ColDocument d;
+
         l = hud_item_get_tokens(i);
-        /*printf("MCS: %s\n", hud_string_list_pretty_print(l));*/
-        col_document_add_text(d, field, hud_string_list_pretty_print(l));
+        doc_text = hud_string_list_pretty_print(l);
+        if(!strchr(doc_text, '>')) // Skip top level menus because they are uninteresting.
+            continue;
+        printf("MCS: %s\n", doc_text);
+        d = col_document_new(id++);
+        col_document_add_text(d, field, doc_text);
         col_corpus_add_document(c, d);
         col_document_delete(d);
         g_ptr_array_add(arr, l);
