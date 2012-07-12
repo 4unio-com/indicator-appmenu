@@ -343,8 +343,11 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
         l = hud_item_get_tokens(i);
         full_text = hud_string_list_pretty_print(l);
         command = strrchr(full_text, '>');
-        if(!command) // Skip top level menus.
+        if(!command) /* Skip top level menus. */
             continue;
+        /* Only index the actual command. The proper way would be to
+         * put the menu path in its own field and give it less weight.
+         */
         command++;
         /*printf("MCS: %s\n", command);*/
         d = col_document_new(id++);
