@@ -315,18 +315,18 @@ static GString * build_querystring(HudTokenList *search_string) {
 }
 
 /*
- * Do the search using Columbus. Just print out the results.
+ * Do the search using libcolumbus.
  */
-static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_string) {
+static void columbus_search(HudDbusmenuCollector *collector,
+        GPtrArray    *results_array,
+        HudTokenList *search_tokens) {
     ColMatcher m = col_matcher_new();
     ColCorpus c = col_corpus_new();
     GHashTableIter iter;
     gpointer item;
-    DocumentID id = 0;
     ColWord field = col_word_new("text");
     ColMatchResults results = col_match_results_new();
-    GPtrArray *arr = g_ptr_array_new();
-    GString *query = build_querystring(search_string);
+    GString *query = build_querystring(search_tokens);
     size_t num_matches, i;
     const size_t max_matches = 5;
 
@@ -350,11 +350,10 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
          */
         command++;
         /*printf("MCS: %s\n", command);*/
-        d = col_document_new(id++);
+        d = col_document_new((DocumentID) item);
         col_document_add_text(d, field, command);
         col_corpus_add_document(c, d);
         col_document_delete(d);
-        g_ptr_array_add(arr, l);
       }
     col_word_delete(field);
     col_matcher_index(m, c);
@@ -368,16 +367,15 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
     num_matches = col_match_results_size(results);
     printf("Got %ld matches\n", (long)num_matches);
     for(i=0; i<MIN(num_matches, max_matches); i++) {
-        size_t index = col_match_results_get_id(results, i);
-        HudStringList *l = g_ptr_array_index(arr, index);
-        printf(" %s\n", hud_string_list_pretty_print(l));
+        HudItem *matched_item = (HudItem*) col_match_results_get_id(results, i);
+        HudResult *result = hud_result_new (matched_item, search_tokens, 100/col_match_results_get_relevancy(results, i));
+        g_ptr_array_add (results_array, result);
     }
 
     /* Cleanup */
     g_string_free(query, TRUE);
-    col_matcher_delete(m);
     col_match_results_delete(results);
-    g_ptr_array_free(arr, TRUE);
+    col_matcher_delete(m);
 }
 
 static void
@@ -399,14 +397,15 @@ classic_search (HudDbusmenuCollector *collector,
           g_ptr_array_add (results_array, result);
       }
 }
-    static void
+
+static void
 hud_dbusmenu_collector_search (HudSource    *source,
                                GPtrArray    *results_array,
                                HudTokenList *search_string)
 {
   HudDbusmenuCollector *collector = HUD_DBUSMENU_COLLECTOR (source);
   classic_search(collector, results_array, search_string);
-  search_col(collector, search_string);
+  columbus_search(collector, results_array, search_string);
 }
 
 static void
