@@ -381,24 +381,32 @@ static void search_col(HudDbusmenuCollector *collector, HudTokenList *search_str
 }
 
 static void
+classic_search (HudDbusmenuCollector *collector,
+                GPtrArray    *results_array,
+                HudTokenList *search_string)
+{
+    GHashTableIter iter;
+    gpointer item;
+
+
+    g_hash_table_iter_init (&iter, collector->items);
+    while (g_hash_table_iter_next (&iter, NULL, &item))
+      {
+        HudResult *result;
+
+        result = hud_result_get_if_matched (item, search_string, collector->penalty);
+        if (result)
+          g_ptr_array_add (results_array, result);
+      }
+}
+    static void
 hud_dbusmenu_collector_search (HudSource    *source,
                                GPtrArray    *results_array,
                                HudTokenList *search_string)
 {
   HudDbusmenuCollector *collector = HUD_DBUSMENU_COLLECTOR (source);
-  GHashTableIter iter;
-  gpointer item;
-
+  classic_search(collector, results_array, search_string);
   search_col(collector, search_string);
-  g_hash_table_iter_init (&iter, collector->items);
-  while (g_hash_table_iter_next (&iter, NULL, &item))
-    {
-      HudResult *result;
-
-      result = hud_result_get_if_matched (item, search_string, collector->penalty);
-      if (result)
-        g_ptr_array_add (results_array, result);
-    }
 }
 
 static void
