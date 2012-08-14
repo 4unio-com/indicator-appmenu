@@ -377,7 +377,7 @@ static void columbus_search(HudDbusmenuCollector *collector,
     col_match_results_delete(results);
     col_matcher_delete(m);
 }
-
+/*
 static void
 classic_search (HudDbusmenuCollector *collector,
                 GPtrArray    *results_array,
@@ -397,14 +397,14 @@ classic_search (HudDbusmenuCollector *collector,
           g_ptr_array_add (results_array, result);
       }
 }
-
+*/
 static void
 hud_dbusmenu_collector_search (HudSource    *source,
                                GPtrArray    *results_array,
                                HudTokenList *search_string)
 {
   HudDbusmenuCollector *collector = HUD_DBUSMENU_COLLECTOR (source);
-  classic_search(collector, results_array, search_string);
+  //classic_search(collector, results_array, search_string);
   columbus_search(collector, results_array, search_string);
 }
 
