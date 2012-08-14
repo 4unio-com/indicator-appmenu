@@ -62,7 +62,7 @@ GIO_REQUIRED_VERSION=2.26
 INDICATOR_REQUIRED_VERSION=0.3.90
 DBUSMENUGTK_REQUIRED_VERSION=0.5.90
 BAMF_REQUIRED_VERSION=0.2.53
-COLUMBUS_REQUIRED_VERSION=0.2.0
+COLUMBUS_REQUIRED_VERSION=0.3.0
 
 PKG_CHECK_MODULES(gtk, gtk+-3.0 >= $GTK_REQUIRED_VERSION)
 PKG_CHECK_MODULES(INDICATOR,  gtk+-3.0 >= $GTK_REQUIRED_VERSION
@@ -70,7 +70,16 @@ PKG_CHECK_MODULES(INDICATOR,  gtk+-3.0 >= $GTK_REQUIRED_VERSION
                               indicator3-0.4 >= $INDICATOR_REQUIRED_VERSION
                               dbusmenu-gtk3-0.4 >= $DBUSMENUGTK_REQUIRED_VERSION
                               libbamf3 >= $BAMF_REQUIRED_VERSION)
-PKG_CHECK_MODULES(COLUMBUS, libcolumbus >= $COLUMBUS_REQUIRED_VERSION)
+
+AC_ARG_WITH([columbus], AS_HELP_STRING([--with-columbus], [Build with Columbus fuzzy matching library]))
+
+AS_IF([test "x$with_columbus" = "xyes"], [
+  PKG_CHECK_MODULES(COLUMBUS, libcolumbus >= $COLUMBUS_REQUIRED_VERSION)
+])
+AS_IF([test "x$with_columbus" = "xyes"], [
+  AC_DEFINE(USE_COLUMBUS, 1, "Use Columbus for matching.")
+])
+
 AC_SUBST(INDICATOR_CFLAGS)
 AC_SUBST(INDICATOR_LIBS)
 
@@ -99,7 +108,7 @@ AC_CHECK_HEADER("readline/history.h",
 AC_CHECK_HEADER("curses.h",
 	[has_curses_h="yes"])
 
-AM_CONDITIONAL([BUILD_CLI], [test "x$has_readline_h" == "xyes" && test "x$has_history_h" == "xyes" && test "x$has_curses_h" == "xyes"]),
+AM_CONDITIONAL([BUILD_CLI], [test "x$has_readline_h" == "xyes" && test "x$has_history_h" == "xyes" && test "x$has_curses_h" == "xyes"])
 
 ###########################
 # Test Dependencies
@@ -247,4 +256,5 @@ App Menu Indicator Configuration:
 	gcov:          $use_gcov
 	Local Install: $with_localinstall
 	Test tools:    $have_dbusmenu_jsonloader
+	Use Columbus:  $with_columbus
 ])

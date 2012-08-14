@@ -28,6 +28,10 @@
 #include "hudresult.h"
 #include "hudsource.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /**
  * SECTION:huddbusmenucollector
  * @title: HudDbusmenuCollector
@@ -289,6 +293,8 @@ hud_dbusmenu_collector_unuse (HudSource *source)
   collector->reentrance_check = FALSE;
 }
 
+#ifdef USE_COLUMBUS
+
 #include<stdio.h>
 #include<columbus.h>
 
@@ -313,6 +319,7 @@ static GString * build_querystring(HudTokenList *search_string) {
     }
     return q;
 }
+
 
 /*
  * Do the search using libcolumbus.
@@ -377,7 +384,9 @@ static void columbus_search(HudDbusmenuCollector *collector,
     col_match_results_delete(results);
     col_matcher_delete(m);
 }
-/*
+
+#else
+
 static void
 classic_search (HudDbusmenuCollector *collector,
                 GPtrArray    *results_array,
@@ -397,15 +406,19 @@ classic_search (HudDbusmenuCollector *collector,
           g_ptr_array_add (results_array, result);
       }
 }
-*/
+#endif
+
 static void
 hud_dbusmenu_collector_search (HudSource    *source,
                                GPtrArray    *results_array,
                                HudTokenList *search_string)
 {
   HudDbusmenuCollector *collector = HUD_DBUSMENU_COLLECTOR (source);
-  //classic_search(collector, results_array, search_string);
+#ifdef USE_COLUMBUS
   columbus_search(collector, results_array, search_string);
+#else
+  classic_search(collector, results_array, search_string);
+#endif
 }
 
 static void
