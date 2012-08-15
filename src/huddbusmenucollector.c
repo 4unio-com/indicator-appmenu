@@ -331,9 +331,11 @@ static void columbus_search(HudDbusmenuCollector *collector,
     ColCorpus c = col_corpus_new();
     GHashTableIter iter;
     gpointer item;
-    ColWord field = col_word_new("text");
+    ColWord command_field = col_word_new("text");
+    ColWord path_field = col_word_new("path");
     ColMatchResults results = col_match_results_new();
     GString *query = build_querystring(search_tokens);
+    const double path_weight = 0.3;
     size_t num_matches, i;
     const size_t max_matches = 5;
 
@@ -343,7 +345,7 @@ static void columbus_search(HudDbusmenuCollector *collector,
         HudItem *i = item;
         HudStringList *l;
         char *full_text;
-        const char *command;
+        char *command;
 
         ColDocument d;
 
@@ -352,22 +354,24 @@ static void columbus_search(HudDbusmenuCollector *collector,
         command = strrchr(full_text, '>');
         if(!command) /* Skip top level menus. */
             continue;
-        /* Only index the actual command. The proper way would be to
-         * put the menu path in its own field and give it less weight.
-         */
+
+        *command = '\0';
         command++;
-        /*printf("MCS: %s\n", command);*/
+        /*printf("Path: %s command: %s\n", full_text, command);*/
         d = col_document_new((DocumentID) item);
-        col_document_add_text(d, field, command);
+        col_document_add_text(d, path_field, full_text);
+        col_document_add_text(d, command_field, command);
         col_corpus_add_document(c, d);
         col_document_delete(d);
         g_free(full_text);
       }
-    col_word_delete(field);
     col_matcher_index(m, c);
     col_error_values_add_standard_errors(col_matcher_get_error_values(m));
     col_error_values_set_substring_mode(col_matcher_get_error_values(m));
+    col_index_weights_set_weight(col_matcher_get_index_weights(m), path_field, path_weight);
     col_corpus_delete(c);
+    col_word_delete(path_field);
+    col_word_delete(command_field);
 
     /* Do matching */
     printf("Querying: %s\n", query->str);
