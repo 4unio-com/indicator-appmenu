@@ -342,7 +342,7 @@ static void columbus_search(HudDbusmenuCollector *collector,
       {
         HudItem *i = item;
         HudStringList *l;
-        const char *full_text;
+        char *full_text;
         const char *command;
 
         ColDocument d;
@@ -361,6 +361,7 @@ static void columbus_search(HudDbusmenuCollector *collector,
         col_document_add_text(d, field, command);
         col_corpus_add_document(c, d);
         col_document_delete(d);
+        g_free(full_text);
       }
     col_word_delete(field);
     col_matcher_index(m, c);
