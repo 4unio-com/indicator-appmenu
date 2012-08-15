@@ -143,7 +143,7 @@ hud_result_format_description (HudResult *result)
   description = g_string_new (NULL);
   hud_result_format_tokens (description, hud_item_get_tokens (result->item));
 
-  for (i = 0; result->matched[i]; i++)
+  for (i = 0; result->matched && result->matched[i]; i++)
     {
       gchar *escaped;
       gchar *match;
