@@ -602,6 +602,10 @@ hud_dbusmenu_collector_root_changed (DbusmenuClient   *client,
 
   g_assert (!collector->reentrance_check);
 
+#ifdef USE_COLUMBUS
+  col_matcher_delete(collector->m);
+  collector->m = NULL;
+#endif
   hud_dbusmenu_collector_setup_root (collector, root);
 }
 
