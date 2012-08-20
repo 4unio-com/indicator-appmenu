@@ -32,6 +32,10 @@
 #include "config.h"
 #endif
 
+#ifdef USE_COLUMBUS
+#include<columbus.h>
+#endif
+
 /**
  * SECTION:huddbusmenucollector
  * @title: HudDbusmenuCollector
@@ -223,6 +227,10 @@ struct _HudDbusmenuCollector
   gboolean alive;
   gint use_count;
   gboolean reentrance_check;
+#ifdef USE_COLUMBUS
+  ColMatcher m;
+#endif
+
 };
 
 typedef GObjectClass HudDbusmenuCollectorClass;
@@ -295,8 +303,6 @@ hud_dbusmenu_collector_unuse (HudSource *source)
 
 #ifdef USE_COLUMBUS
 
-#include<stdio.h>
-#include<columbus.h>
 
 /*
  * This is Evil and you should never, ever do it elsewhere, mmm'kay?
@@ -321,23 +327,14 @@ static GString * build_querystring(HudTokenList *search_string) {
 }
 
 
-/*
- * Do the search using libcolumbus.
- */
-static void columbus_search(HudDbusmenuCollector *collector,
-        GPtrArray    *results_array,
-        HudTokenList *search_tokens) {
+static ColMatcher build_columbus_matcher(HudDbusmenuCollector *collector) {
     ColMatcher m = col_matcher_new();
     ColCorpus c = col_corpus_new();
     GHashTableIter iter;
     gpointer item;
     ColWord command_field = col_word_new("text");
     ColWord path_field = col_word_new("path");
-    ColMatchResults results = col_match_results_new();
-    GString *query = build_querystring(search_tokens);
     const double path_weight = 0.3;
-    size_t num_matches, i;
-    const size_t max_matches = 5;
 
     g_hash_table_iter_init (&iter, collector->items);
     while (g_hash_table_iter_next (&iter, NULL, &item))
@@ -372,12 +369,25 @@ static void columbus_search(HudDbusmenuCollector *collector,
     col_corpus_delete(c);
     col_word_delete(path_field);
     col_word_delete(command_field);
+    return m;
+}
+
+/*
+ * Do the search using libcolumbus.
+ */
+static void columbus_search(HudDbusmenuCollector *collector,
+        GPtrArray    *results_array,
+        HudTokenList *search_tokens) {
+    ColMatchResults results = col_match_results_new();
+    GString *query = build_querystring(search_tokens);
+    size_t num_matches, i;
+    const size_t max_matches = 5;
 
     /* Do matching */
-    printf("Querying: %s\n", query->str);
-    col_matcher_match(m, query->str, results);
+    /*printf("Querying: %s\n", query->str);*/
+    col_matcher_match(collector->m, query->str, results);
     num_matches = col_match_results_size(results);
-    printf("Got %ld matches\n", (long)num_matches);
+    /*printf("Got %ld matches\n", (long)num_matches);*/
     for(i=0; i<MIN(num_matches, max_matches); i++) {
         HudItem *matched_item = (HudItem*) col_match_results_get_id(results, i);
         HudResult *result = hud_result_new (matched_item, search_tokens, 100/col_match_results_get_relevancy(results, i));
@@ -387,7 +397,6 @@ static void columbus_search(HudDbusmenuCollector *collector,
     /* Cleanup */
     g_string_free(query, TRUE);
     col_match_results_delete(results);
-    col_matcher_delete(m);
 }
 
 #else
@@ -420,6 +429,8 @@ hud_dbusmenu_collector_search (HudSource    *source,
 {
   HudDbusmenuCollector *collector = HUD_DBUSMENU_COLLECTOR (source);
 #ifdef USE_COLUMBUS
+  if(!collector->m)
+      collector->m = build_columbus_matcher(collector);
   columbus_search(collector, results_array, search_string);
 #else
   classic_search(collector, results_array, search_string);
@@ -653,6 +664,10 @@ hud_dbusmenu_collector_finalize (GObject *object)
   hud_string_list_unref (collector->prefix);
   g_clear_object (&collector->client);
 
+#ifdef USE_COLUMBUS
+  col_matcher_delete(collector->m);
+#endif
+
   G_OBJECT_CLASS (hud_dbusmenu_collector_parent_class)
     ->finalize (object);
 }
@@ -661,6 +676,9 @@ static void
 hud_dbusmenu_collector_init (HudDbusmenuCollector *collector)
 {
   collector->items = g_hash_table_new_full (NULL, NULL, NULL, g_object_unref);
+#ifdef USE_COLUMBUS
+  collector->m = 0;
+#endif
 }
 
 static void
