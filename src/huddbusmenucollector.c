@@ -676,9 +676,6 @@ static void
 hud_dbusmenu_collector_init (HudDbusmenuCollector *collector)
 {
   collector->items = g_hash_table_new_full (NULL, NULL, NULL, g_object_unref);
-#ifdef USE_COLUMBUS
-  collector->m = 0;
-#endif
 }
 
 static void
@@ -741,6 +738,9 @@ hud_dbusmenu_collector_new_for_endpoint (const gchar *application_id,
 
   collector->alive = TRUE;
 
+#ifdef USE_COLUMBUS
+  collector->m = NULL;
+#endif
   return collector;
 }
 
@@ -772,6 +772,9 @@ hud_dbusmenu_collector_new_for_window (BamfWindow  *window,
 
   collector->alive = TRUE;
 
+#ifdef USE_COLUMBUS
+  collector->m = NULL;
+#endif
   return collector;
 }
 
