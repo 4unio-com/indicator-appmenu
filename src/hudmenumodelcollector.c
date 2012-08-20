@@ -345,8 +345,6 @@ hud_menu_model_collector_unuse (HudSource *source)
   collector->use_count--;
 }
 
-#include<stdio.h>
-
 static void
 hud_menu_model_collector_search (HudSource    *source,
                                  GPtrArray    *results_array,
@@ -361,11 +359,8 @@ hud_menu_model_collector_search (HudSource    *source,
     {
       HudResult *result;
       HudItem *item;
-      HudStringList *slist;
 
       item = g_ptr_array_index (items, i);
-      slist = hud_item_get_tokens(item);
-      printf("%s\n", hud_string_list_pretty_print(slist));
       result = hud_result_get_if_matched (item, search_string, 0);
       if (result)
         g_ptr_array_add (results_array, result);
