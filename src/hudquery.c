@@ -74,10 +74,14 @@ hud_query_find_max_usage (gpointer data,
   HudItem *item;
   guint usage;
 
-  item = hud_result_get_item (result);
-  usage = hud_item_get_usage (item);
+  if(result == NULL) {
+      *max_usage = 0;
+  } else {
+      item = hud_result_get_item (result);
+      usage = hud_item_get_usage (item);
 
-  *max_usage = MAX (*max_usage, usage);
+      *max_usage = MAX (*max_usage, usage);
+  }
 }
 
 static gint

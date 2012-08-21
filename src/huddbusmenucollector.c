@@ -429,8 +429,9 @@ hud_dbusmenu_collector_search (HudSource    *source,
 {
   HudDbusmenuCollector *collector = HUD_DBUSMENU_COLLECTOR (source);
 #ifdef USE_COLUMBUS
-  if(!collector->m)
+  if(!collector->m) {
       collector->m = build_columbus_matcher(collector);
+  }
   columbus_search(collector, results_array, search_string);
 #else
   classic_search(collector, results_array, search_string);
@@ -732,7 +733,6 @@ hud_dbusmenu_collector_new_for_endpoint (const gchar *application_id,
                                          const gchar *object_path)
 {
   HudDbusmenuCollector *collector;
-
   collector = g_object_new (HUD_TYPE_DBUSMENU_COLLECTOR, NULL);
   collector->application_id = g_strdup (application_id);
   collector->icon = g_strdup (icon);
