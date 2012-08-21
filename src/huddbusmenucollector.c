@@ -304,22 +304,12 @@ hud_dbusmenu_collector_unuse (HudSource *source)
 #ifdef USE_COLUMBUS
 
 
-/*
- * This is Evil and you should never, ever do it elsewhere, mmm'kay?
- */
-
-struct _HudTokenList
-{
-  HudToken **tokens;
-  gint       length;
-};
-
 static GString * build_querystring(HudTokenList *search_string) {
     GString *q = g_string_new(NULL);
-    gint i;
+    guint i;
 
-    for(i=0; i<search_string->length; i++) {
-        HudToken *t = search_string->tokens[i];
+    for(i=0; i<hud_token_list_get_length(search_string); i++) {
+        HudToken *t = hud_token_list_get_token(search_string, i);
         g_string_append(q, hud_token_get_string(t));
         g_string_append(q, " ");
     }
