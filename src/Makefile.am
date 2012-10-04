@@ -23,6 +23,10 @@ include $(top_srcdir)/Makefile.am.marshal
 appmenulibdir = $(INDICATORDIR)
 appmenulib_LTLIBRARIES = libappmenu.la
 libappmenu_la_SOURCES = \
+	altgrabber.c \
+	altgrabber.h \
+	altmonitor.c \
+	altmonitor.h \
 	dbus-shared.h \
 	gdk-get-func.h \
 	gdk-get-func.c \

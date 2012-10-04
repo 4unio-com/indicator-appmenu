@@ -173,3 +173,7 @@ po/indicator-appmenu.pot
 libappmenu_la-window-menu.lo
 libappmenu_la-window-menu-model.lo
 libappmenu_la-window-menu-dbusmenu.lo
+libappmenu_la-altgrabber.lo
+libappmenu_la-altgrabber.o
+libappmenu_la-altmonitor.lo
+libappmenu_la-altmonitor.o
