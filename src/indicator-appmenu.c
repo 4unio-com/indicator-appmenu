@@ -35,6 +35,8 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <libbamf/bamf-matcher.h>
 
+#include "altgrabber.h"
+#include "altmonitor.h"
 #include "gen-application-menu-registrar.xml.h"
 #include "gen-application-menu-renderer.xml.h"
 #include "indicator-appmenu-marshal.h"
@@ -108,6 +110,9 @@ struct _IndicatorAppmenu {
 	guint dbus_registration;
 
 	GHashTable * destruction_timers;
+
+	AltGrabber * altgrabber;
+	AltMonitor * altmonitor;
 };
 
 
@@ -279,6 +284,8 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->bus = NULL;
 	self->owner_id = 0;
 	self->dbus_registration = 0;
+	self->altgrabber = NULL;
+	self->altmonitor = NULL;
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
@@ -310,6 +317,11 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 
 	/* Request a name so others can find us */
 	retry_registration(self);
+
+	/* Alt stuff */
+	/* TODO: We need to figure out how many of these we need :-( */
+	self->altgrabber = alt_grabber_get_for_screen(gdk_screen_get_default());
+	self->altmonitor = alt_monitor_get_for_display(gdk_display_get_default());
 
 	return;
 }
@@ -452,6 +464,9 @@ indicator_appmenu_dispose (GObject *object)
 		   We're just keeping an efficient pointer to them. */
 		iapp->desktop_menu = NULL;
 	}
+
+	g_clear_object(&iapp->altgrabber);
+	g_clear_object(&iapp->altmonitor);
 
 	G_OBJECT_CLASS (indicator_appmenu_parent_class)->dispose (object);
 	return;
