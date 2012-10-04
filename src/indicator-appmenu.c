@@ -1037,6 +1037,9 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenu * newdef, BamfWindow * a
 	/* Default App is NULL, let's see if it needs replacement */
 	iapp->default_app = NULL;
 
+	/* Clear the alt entries */
+	alt_grabber_clear(iapp->altgrabber);
+
 	/* Update the active window pointer -- may be NULL */
 	switch_active_window(iapp, active_window);
 
@@ -1078,6 +1081,20 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenu * newdef, BamfWindow * a
 		                       window_menu_get_status (iapp->default_app),
 		                       iapp);
 	}
+
+	GList * entries = get_entries(INDICATOR_OBJECT(iapp));
+	GList * entry = NULL;
+	for (entry = entries; entry != NULL; entry = g_list_next(entry)) {
+		IndicatorObjectEntry * ent = (IndicatorObjectEntry *)entry->data;
+
+		if (ent->label != NULL && GTK_IS_LABEL(ent->label)) {
+			guint keyval = gtk_label_get_mnemonic_keyval(ent->label);
+			if (keyval != GDK_KEY_VoidSymbol) {
+				alt_grabber_add_unichar(iapp->altgrabber, keyval, NULL, NULL, NULL);
+			}
+		}
+	}
+	g_list_free(entries);
 
 	return;
 }
