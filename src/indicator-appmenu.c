@@ -113,6 +113,7 @@ struct _IndicatorAppmenu {
 
 	AltGrabber * altgrabber;
 	AltMonitor * altmonitor;
+	gulong altmonitor_sig;
 };
 
 
@@ -211,6 +212,9 @@ static void menus_destroyed                                          (GObject * 
 static void source_unregister                                        (gpointer user_data);
 static GVariant * unregister_window                                  (IndicatorAppmenu * iapp,
                                                                       guint windowid);
+static void altmonitor_alt_pressed                                   (GObject * obj,
+                                                                      GParamSpec * pspec,
+                                                                      gpointer user_data);
 
 /* Unique error codes for debug interface */
 enum {
@@ -286,6 +290,7 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->dbus_registration = 0;
 	self->altgrabber = NULL;
 	self->altmonitor = NULL;
+	self->altmonitor_sig = 0;
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
@@ -322,6 +327,10 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	/* TODO: We need to figure out how many of these we need :-( */
 	self->altgrabber = alt_grabber_get_for_screen(gdk_screen_get_default());
 	self->altmonitor = alt_monitor_get_for_display(gdk_display_get_default());
+
+	if (self->altmonitor != NULL) {
+		self->altmonitor_sig = g_signal_connect(G_OBJECT(self->altmonitor), "notify::" ALT_MONITOR_PROP_ALT_PRESSED, G_CALLBACK(altmonitor_alt_pressed), self);
+	}
 
 	return;
 }
@@ -466,6 +475,12 @@ indicator_appmenu_dispose (GObject *object)
 	}
 
 	g_clear_object(&iapp->altgrabber);
+
+	if (iapp->altmonitor_sig != 0) {
+		g_signal_handler_disconnect(iapp->altmonitor, iapp->altmonitor_sig);
+		iapp->altmonitor_sig = 0;
+	}
+
 	g_clear_object(&iapp->altmonitor);
 
 	G_OBJECT_CLASS (indicator_appmenu_parent_class)->dispose (object);
@@ -1462,6 +1477,29 @@ static void
 window_a11y_update (WindowMenu * mw, IndicatorObjectEntry * entry, gpointer user_data)
 {
 	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ACCESSIBLE_DESC_UPDATE, entry);
+	return;
+}
+
+/* We're monitoring for when alt changes in X11 */
+static void
+altmonitor_alt_pressed (GObject * obj, GParamSpec * pspec, gpointer user_data)
+{
+	g_return_if_fail(IS_INDICATOR_APPMENU(user_data));
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU(user_data);
+
+	if (iapp->default_app == NULL) {
+		/* We don't care, move along */
+		return;
+	}
+
+	GValue altval = {0};
+	g_value_init(&altval, G_TYPE_BOOLEAN);
+	g_object_get_property(G_OBJECT(iapp->altmonitor), ALT_MONITOR_PROP_ALT_PRESSED, &altval);
+
+	DbusmenuStatus status = g_value_get_boolean(&altval) ? DBUSMENU_STATUS_NOTICE : DBUSMENU_STATUS_NORMAL;
+	g_value_unset(&altval);
+
+	window_status_changed(iapp->default_app, status, iapp);
 	return;
 }
 
