@@ -26,6 +26,8 @@
                                                              ALT_MONITOR_TYPE, AltMonitor))
 #define IS_ALT_MONITOR(inst)                                (G_TYPE_CHECK_INSTANCE_TYPE ((inst), ALT_MONITOR_TYPE))
 
+#define ALT_MONITOR_PROP_ALT_PRESSED                         "alt-pressed"
+
 typedef struct _AltMonitor                                  AltMonitor;
 
 GType                   alt_monitor_get_type                            (void) G_GNUC_CONST;

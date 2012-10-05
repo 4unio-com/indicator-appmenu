@@ -147,7 +147,7 @@ alt_monitor_class_init (AltMonitorClass *class)
   class->finalize = alt_monitor_finalize;
   class->get_property = alt_monitor_get_property;
 
-  alt_pressed_param = g_param_spec_boolean ("alt-pressed", "alt key pressed", "TRUE if 'Alt' is currently pressed",
+  alt_pressed_param = g_param_spec_boolean (ALT_MONITOR_PROP_ALT_PRESSED, "alt key pressed", "TRUE if 'Alt' is currently pressed",
                                             TRUE, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (class, 1, alt_pressed_param);
 }
