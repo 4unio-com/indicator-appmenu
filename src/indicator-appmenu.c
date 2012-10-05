@@ -1008,7 +1008,7 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 static void
 altgrabber_cb (AltGrabber * grabber, gunichar c, gpointer user_data)
 {
-	g_debug("Alt grabber showing key %s", gdk_keyval_name(c));
+	g_debug("Alt grabber showing key %c", (char)c);
 
 	IndicatorObjectEntry * entry = (IndicatorObjectEntry *)user_data;
 	guint32 timestamp = gdk_x11_display_get_user_time(gdk_display_get_default());
@@ -1119,7 +1119,10 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenu * newdef, BamfWindow * a
 			guint keyval = gtk_label_get_mnemonic_keyval(ent->label);
 			g_debug("Grabbing key %s", gdk_keyval_name(keyval));
 			if (keyval != GDK_KEY_VoidSymbol) {
-				alt_grabber_add_unichar(iapp->altgrabber, keyval, altgrabber_cb, entry, NULL);
+				guint32 unival = gdk_keyval_to_unicode(keyval);
+				if (unival != 0) {
+					alt_grabber_add_unichar(iapp->altgrabber, unival, altgrabber_cb, entry, NULL);
+				}
 			}
 		}
 	}
