@@ -989,6 +989,17 @@ switch_active_window (IndicatorAppmenu * iapp, BamfWindow * active_window)
 	return;
 }
 
+/* Respond to the alt grabber saying that the key has been pressed */
+static void
+altgrabber_cb (AltGrabber * grabber, gunichar c, gpointer user_data)
+{
+	IndicatorObjectEntry * entry = (IndicatorObjectEntry *)user_data;
+	guint32 timestamp = gdk_x11_display_get_user_time(gdk_display_get_default());
+
+	g_signal_emit_by_name(G_OBJECT(entry->parent_object), INDICATOR_OBJECT_SIGNAL_MENU_SHOW, entry, timestamp);
+	return;
+}
+
 /* Switch applications, remove all the entires for the previous
    one and add them for the new application */
 static void
@@ -1090,7 +1101,7 @@ switch_default_app (IndicatorAppmenu * iapp, WindowMenu * newdef, BamfWindow * a
 		if (ent->label != NULL && GTK_IS_LABEL(ent->label)) {
 			guint keyval = gtk_label_get_mnemonic_keyval(ent->label);
 			if (keyval != GDK_KEY_VoidSymbol) {
-				alt_grabber_add_unichar(iapp->altgrabber, keyval, NULL, NULL, NULL);
+				alt_grabber_add_unichar(iapp->altgrabber, keyval, altgrabber_cb, entry, NULL);
 			}
 		}
 	}
