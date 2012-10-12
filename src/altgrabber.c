@@ -119,7 +119,7 @@ alt_grabber_finish_clear (gpointer data)
         guint mask;
 
         for (mask = 0; mask < 0x100; mask++)
-          if ((mask & (ShiftMask | ControlMask | Mod1Mask)) == Mod1Mask)
+          if ((mask & (ShiftMask | ControlMask | Mod1Mask)) & Mod1Mask)
             XUngrabKey (dpy, keycode, mask, root);
 
         g_hash_table_iter_remove (&iter);
