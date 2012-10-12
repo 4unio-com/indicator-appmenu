@@ -56,7 +56,7 @@ struct _AltGrabber
 
 typedef struct
 {
-  gunichar c;
+  guint keyval;
   gint ref_count;
 
   AltGrabberCallback callback;
@@ -88,7 +88,7 @@ alt_grabber_event_filter (GdkXEvent *xevent,
         {
           KeyGrab *grab = grabs->data;
 
-          (* grab->callback) (grabber, grab->c, grab->user_data);
+          (* grab->callback) (grabber, grab->keyval, grab->user_data);
 
           grabs = grabs->next;
         }
@@ -280,17 +280,15 @@ alt_grabber_clear (AltGrabber *grabber)
  * The effect of this call can be reversed with alt_grabber_clear().
  **/
 void
-alt_grabber_add_unichar (AltGrabber         *grabber,
-                         gunichar            c,
+alt_grabber_add_keyval  (AltGrabber         *grabber,
+                         guint               keyval,
                          AltGrabberCallback  callback,
                          gpointer            user_data,
                          GDestroyNotify      notify)
 {
   GdkKeymapKey *codes;
   gint n_codes;
-  guint keyval;
 
-  keyval = gdk_unicode_to_keyval (c);
   keyval = gdk_keyval_to_lower (keyval);
 
   if (keyval != 0 && gdk_keymap_get_entries_for_keyval (grabber->keymap, keyval, &codes, &n_codes))
@@ -303,7 +301,7 @@ alt_grabber_add_unichar (AltGrabber         *grabber,
       g_assert (n_codes > 0);
 
       grab = g_slice_new (KeyGrab);
-      grab->c = c;
+      grab->keyval = keyval;
       grab->ref_count = n_codes;
       grab->callback = callback;
       grab->user_data = user_data;
@@ -332,13 +330,7 @@ alt_grabber_add_unichar (AltGrabber         *grabber,
 
       if (gdk_error_trap_pop ())
         {
-          gchar outbuf[8];
-          gint s;
-
-          s = g_unichar_to_utf8 (c, outbuf);
-          outbuf[s] = '\0';
-
-          g_warning ("failed to acquire (some) keyboard grabs for '%s'", outbuf);
+          g_warning ("failed to acquire (some) keyboard grabs for '%s'", gdk_keyval_name(keyval));
         }
     }
   else

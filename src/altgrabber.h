@@ -29,14 +29,14 @@
 typedef struct _AltGrabber                                  AltGrabber;
 
 typedef void         (* AltGrabberCallback)                             (AltGrabber         *grabber,
-                                                                         gunichar            c,
+                                                                         guint               keyval,
                                                                          gpointer            user_data);
 
 GType                   alt_grabber_get_type                            (void) G_GNUC_CONST;
 AltGrabber *            alt_grabber_get_for_screen                      (GdkScreen          *screen);
 void                    alt_grabber_clear                               (AltGrabber         *grabber);
-void                    alt_grabber_add_unichar                         (AltGrabber         *grabber,
-                                                                         gunichar            c,
+void                    alt_grabber_add_keyval                          (AltGrabber         *grabber,
+                                                                         guint               keyval,
                                                                          AltGrabberCallback  callback,
                                                                          gpointer            user_data,
                                                                          GDestroyNotify      notify);
