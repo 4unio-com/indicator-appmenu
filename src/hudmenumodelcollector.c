@@ -68,14 +68,15 @@ struct _HudMenuModelCollector
   gchar *unique_bus_name;
 
   /* If this is an application, is_application will be set and
-   * 'application' and 'window' will contain the two action groups for
-   * the window that we are collecting.
+   * 'application', 'window', and 'unity' will contain the three action
+   * groups for the window that we are collecting.
    *
    * If this is an indicator, is_application will be false and the
    * (singular) action group for the indicator will be in 'application'.
    */
   GDBusActionGroup *application;
   GDBusActionGroup *window;
+  GDBusActionGroup *unity;
   gboolean is_application;
 
   /* The GMenuModel for the app menu.
@@ -254,16 +255,25 @@ hud_model_item_new (HudMenuModelCollector *collector,
 
   if (collector->is_application)
     {
-      /* For applications we support "app." and "win." actions and
-       * deliver them to the application or the window, with the prefix
-       * removed.
+      /* For applications we support "app.", "win.", and "unity."
+       * actions and deliver them to the application or the window, with
+       * the prefix removed.
        */
       if (g_str_has_prefix (full_action_name, "app."))
-        group = collector->application;
+        {
+          stripped_action_name = full_action_name + 4;
+          group = collector->application;
+        }
       else if (g_str_has_prefix (full_action_name, "win."))
-        group = collector->window;
-
-      stripped_action_name = full_action_name + 4;
+        {
+          stripped_action_name = full_action_name + 4;
+          group = collector->window;
+        }
+      else if (g_str_has_prefix (full_action_name, "unity."))
+        {
+          stripped_action_name = full_action_name + 6;
+          group = collector->unity;
+        }
     }
   else
     {
@@ -548,6 +558,7 @@ hud_menu_model_collector_finalize (GObject *object)
   g_clear_object (&collector->menubar);
   g_clear_object (&collector->application);
   g_clear_object (&collector->window);
+  g_clear_object (&collector->unity);
 
   g_object_unref (collector->session);
   g_free (collector->unique_bus_name);
@@ -640,6 +651,7 @@ hud_menu_model_collector_get (BamfWindow  *window,
   gchar *unique_bus_name;
   gchar *application_object_path;
   gchar *window_object_path;
+  gchar *unity_object_path;
   GDBusConnection *session;
 
   session = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, NULL);
@@ -661,6 +673,7 @@ hud_menu_model_collector_get (BamfWindow  *window,
   collector->menubar_object_path = bamf_window_get_utf8_prop (window, "_GTK_MENUBAR_OBJECT_PATH");
   application_object_path = bamf_window_get_utf8_prop (window, "_GTK_APPLICATION_OBJECT_PATH");
   window_object_path = bamf_window_get_utf8_prop (window, "_GTK_WINDOW_OBJECT_PATH");
+  unity_object_path = bamf_window_get_utf8_prop (window, "_UNITY_OBJECT_PATH");
 
   if (collector->app_menu_object_path)
     {
@@ -687,6 +700,9 @@ hud_menu_model_collector_get (BamfWindow  *window,
 
   if (window_object_path)
     collector->window = g_dbus_action_group_get (session, unique_bus_name, window_object_path);
+
+  if (unity_object_path)
+    collector->unity = g_dbus_action_group_get (session, unique_bus_name, unity_object_path);
 
   collector->is_application = TRUE;
   collector->desktop_file = g_strdup (desktop_file);
