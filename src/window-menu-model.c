@@ -552,6 +552,7 @@ window_menu_model_new (BamfApplication * app, BamfWindow * window)
 	g_free (menubar_object_path);
 	g_free (application_object_path);
 	g_free (window_object_path);
+	g_free (unity_object_path);
 
 	g_object_unref (session);
 

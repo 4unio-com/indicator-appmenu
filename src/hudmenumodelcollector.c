@@ -714,6 +714,7 @@ hud_menu_model_collector_get (BamfWindow  *window,
 
   g_free (application_object_path);
   g_free (window_object_path);
+  g_free (unity_object_path);
 
   return collector;
 }
