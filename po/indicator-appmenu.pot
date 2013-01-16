@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2012-11-22 12:51+0100\n"
+"POT-Creation-Date: 2013-01-16 15:48-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -141,6 +141,6 @@ msgstr ""
 msgid "Messages"
 msgstr ""
 
-#: ../src/window-menu-model.c:162
+#: ../src/window-menu-model.c:165
 msgid "Unknown Application Name"
 msgstr ""

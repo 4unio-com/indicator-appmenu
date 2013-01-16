@@ -1,0 +1,32 @@
+Test Unity Action Group
+=======================
+
+These tests show that the Unity action group is working
+unity-gtk-module must be installed
+
+Test Gnome Terminal Menus
+-------------------------
+
+#. Start Gnome Terminal
+#. Select Help
+
+Outcome
+ Contents and About must be sensitive
+
+Test Devhelp Menus
+------------------
+
+#. Start Devhelp
+#. Select Window
+
+Outcome
+ New Tab, Print, and Close must be sensitive
+
+Test Eye of GNOME
+-----------------
+
+#. Start Eye of GNOME
+#. Select Help
+
+Outcome
+ Contents and About must be sensitive

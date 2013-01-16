@@ -4,5 +4,6 @@ EXTRA_DIST = \
 	appmenu-evince.txt \
 	appmenu-firefox.txt \
 	appmenu-gedit.txt \
-	appmenu-thunderbird.txt
+	appmenu-thunderbird.txt \
+	appmenu-unity-action-group.txt
 
