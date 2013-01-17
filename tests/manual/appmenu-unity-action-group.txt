@@ -2,6 +2,7 @@ Test Unity Action Group
 =======================
 
 These tests show that the Unity action group is working
+GTK+ 3 without the menu proxy patch must be installed
 unity-gtk-module must be installed
 
 Test Gnome Terminal Menus
@@ -11,7 +12,7 @@ Test Gnome Terminal Menus
 #. Select Help
 
 Outcome
- Contents and About must be sensitive
+ Contents and About must be sensitive (not greyed out, enabled)
 
 Test Devhelp Menus
 ------------------
@@ -20,7 +21,7 @@ Test Devhelp Menus
 #. Select Window
 
 Outcome
- New Tab, Print, and Close must be sensitive
+ New Tab, Print, and Close must be sensitive (not greyed out, enabled)
 
 Test Eye of GNOME
 -----------------
@@ -29,4 +30,4 @@ Test Eye of GNOME
 #. Select Help
 
 Outcome
- Contents and About must be sensitive
+ Contents and About must be sensitive (not greyed out, enabled)
