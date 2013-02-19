@@ -60,24 +60,39 @@ class GeditTestCase(UnityTestCase, GtkIntrospectionTestMixin):
 
 
     def test_file_exit(self):
-        # Open the file menu
-        # FIXME get rid of this sleep--how to add "wait for" here?
-        time.sleep(3)
+
+        #item = self.app.select_single('GtkImageMenuItem', label='_Quit')
+        #print item.get_properties()
+
+        # open the file menu
         panel = self.panel_controller.get_active_panel()
+        file_menu = lambda : panel.menus.get_menu_by_label('_File')
+        self.assertThat(file_menu, Eventually(NotEquals(None)))
         file_menu = panel.menus.get_menu_by_label('_File')
-        self.assertThat(file_menu, NotEquals(None))
         file_menu.mouse_click()
 
-        # Guess where the 'Exit' item is
-        # FIXME get rid of this sleep
-        time.sleep(5)
+        # click on 'Quit'
+        time.sleep(3)
+        #menu_item = lambda : self.app.select_many('GtkImageMenuItem')
+        #self.assertThat(menu_item, Eventually(NotEquals(None)))
 
-        menu_item = self.app.select_single('GtkAccelLabel', label='_Quit')
-        self.assertTrue(menu_item, NotEquals(None))
-        self.mouse.move_to_object(menu_item)
-        self.click()
+
+        #items = self.app.select_many('GtkImageMenuItem', label='_Quit')
+        #for item in items:
+        #    print item.get_properties()
+
+        items = self.app.select_many('GtkImageMenuItem')
+
+
+        #print item.get_properties()
+        #menu_items = self.app.select_many('GtkImageMenuItem')
+        #print 'oheck'
+        #for menu_item in menu_items:
+        #    print menu_item.get_properties()
+        #self.mouse.move_to_object(menu_item)
+        #self.click()
 
         # Make sure we exited
         # FIXME get rid of this sleep
-        time.sleep(1)
-        self.assertTrue(not self.app_is_running('Text Editor'))
+        #time.sleep(1)
+        #self.assertTrue(not self.app_is_running('Text Editor'))
