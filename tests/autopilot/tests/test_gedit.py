@@ -1,13 +1,9 @@
 
-import os
-import time
-import autopilot.emulators.bamf
+from unity.emulators.unity import Unity
 from unity.tests import UnityTestCase
 from testtools.matchers import NotEquals, Equals
 from autopilot.matchers import Eventually
 from autopilot.introspection.gtk import GtkIntrospectionTestMixin
-from unity.emulators.unity import Unity
-from unity.emulators.panel import UnityPanel
 
 
 
