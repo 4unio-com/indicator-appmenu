@@ -7,7 +7,7 @@ indicator-appmenu (13.01.0daily13.03.28-0ubuntu1) raring; urgency=low
   [ Ubuntu daily release ]
   * Automatic snapshot from revision 236
 
- -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Thu, 28 Mar 2013 20:39:25 +0000
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Thu, 28 Mar 2013 20:27:03 +0000
 
 indicator-appmenu (13.01.0daily13.02.20-0ubuntu1) raring; urgency=low
 
