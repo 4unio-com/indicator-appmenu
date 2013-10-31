@@ -1,3 +1,14 @@
+indicator-appmenu (13.01.0+13.10.20131031-0ubuntu1) saucy; urgency=low
+
+  [ Lars Uebernickel ]
+  * Call gtk_widget_destroy() to break potential ref cycles (lp:
+    #1199877). (LP: #1199877)
+
+  [ Ubuntu daily release ]
+  * Automatic snapshot from revision 247
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Thu, 31 Oct 2013 19:31:17 +0000
+
 indicator-appmenu (13.01.0+13.10.20130930-0ubuntu1) saucy; urgency=low
 
   [ Stephen M. Webb ]
