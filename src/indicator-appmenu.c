@@ -106,6 +106,11 @@ struct _IndicatorAppmenu {
 	GDBusConnection * bus;
 	guint owner_id;
 	guint dbus_registration;
+
+	GDBusProxy * grabber;
+	GHashTable * grabber_grabs;
+	GHashTable * grabber_entries;
+	GCancellable * grabber_cancellable;
 };
 
 
@@ -199,6 +204,17 @@ static void menus_destroyed                                          (GObject * 
                                                                       gpointer user_data);
 static GVariant * unregister_window                                  (IndicatorAppmenu * iapp,
                                                                       guint windowid);
+static void grabber_ready                                            (GObject * object,
+                                                                      GAsyncResult * result,
+                                                                      gpointer user_data);
+static void grabber_grabbed                                          (GObject * object,
+                                                                      GAsyncResult * result,
+                                                                      gpointer user_data);
+static void grabber_emitted                                          (GDBusProxy * proxy,
+                                                                      gchar * sender_name,
+                                                                      gchar * signal_name,
+                                                                      GVariant * parameters,
+                                                                      gpointer user_data);
 
 /* Unique error codes for debug interface */
 enum {
@@ -271,6 +287,10 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 	self->bus = NULL;
 	self->owner_id = 0;
 	self->dbus_registration = 0;
+	self->grabber = NULL;
+	self->grabber_grabs = g_hash_table_new (NULL, NULL);
+	self->grabber_entries = g_hash_table_new (NULL, NULL);
+	self->grabber_cancellable = NULL;
 
 	/* Setup the entries for the fallbacks */
 	self->window_menus = g_array_sized_new(FALSE, FALSE, sizeof(IndicatorObjectEntry), 2);
@@ -294,6 +314,18 @@ indicator_appmenu_init (IndicatorAppmenu *self)
 		g_signal_connect(G_OBJECT(self->matcher), "view-opened", G_CALLBACK(new_window), self);
 		g_signal_connect(G_OBJECT(self->matcher), "view-closed", G_CALLBACK(old_window), self);
 	}
+
+	/* Open connection to the key grabber */
+	self->grabber_cancellable = g_cancellable_new ();
+	g_dbus_proxy_new_for_bus (G_BUS_TYPE_SESSION,
+	                          G_DBUS_PROXY_FLAGS_NONE,
+	                          NULL,
+	                          "org.gnome.Shell",
+	                          "/org/gnome/Shell",
+	                          "org.gnome.Shell",
+	                          self->grabber_cancellable,
+	                          grabber_ready,
+	                          self);
 
 	find_desktop_windows(self);
 
@@ -355,11 +387,131 @@ on_name_lost (GDBusConnection * connection, const gchar * name,
 	switch_default_app(iapp, NULL, NULL);
 }
 
+static void
+grabber_ready (GObject * object, GAsyncResult * result, gpointer user_data)
+{
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU (user_data);
+	GError * error = NULL;
+
+	iapp->grabber = g_dbus_proxy_new_for_bus_finish (result, &error);
+
+	if (iapp->grabber != NULL) {
+		g_signal_connect (iapp->grabber, "g-signal", G_CALLBACK (grabber_emitted), iapp);
+	}
+
+	if (error != NULL) {
+		g_warning ("No key grabber available: %s", error->message);
+		g_error_free (error);
+	}
+}
+
+static void
+grabber_grabbed (GObject * object, GAsyncResult * result, gpointer user_data)
+{
+	GDBusProxy * grabber = G_DBUS_PROXY (object);
+	IndicatorObjectEntry * entry = user_data;
+	GError * error = NULL;
+	GVariant * variant;
+
+	variant = g_dbus_proxy_call_finish (grabber, result, &error);
+
+	if (IS_INDICATOR_APPMENU (entry->parent_object)) {
+		IndicatorAppmenu * iapp = INDICATOR_APPMENU (entry->parent_object);
+
+		if (variant != NULL) {
+			guint grab = g_variant_get_uint32 (variant);
+			g_variant_unref (variant);
+			variant = NULL;
+
+			if (grab != 0) {
+				if (iapp->grabber_grabs != NULL) {
+					g_hash_table_insert (iapp->grabber_grabs, entry, GUINT_TO_POINTER (grab));
+				}
+
+				if (iapp->grabber_entries != NULL) {
+					g_hash_table_insert (iapp->grabber_entries, GUINT_TO_POINTER (grab), entry);
+				}
+			}
+		}
+	}
+
+	if (variant != NULL) {
+		g_variant_unref (variant);
+	}
+
+	if (error != NULL) {
+		g_warning ("Mnemonic grab failed: %s", error->message);
+		g_error_free (error);
+	}
+}
+
+static void
+grabber_emitted (GDBusProxy * proxy,
+                 gchar * sender_name, gchar * signal_name,
+                 GVariant * parameters, gpointer user_data)
+{
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU (user_data);
+
+	if (g_strcmp0 (sender_name, "org.gnome.Shell") == 0) {
+		if (g_strcmp0 (signal_name, "AcceleratorActivated") == 0) {
+			guint grab;
+			gpointer entry;
+
+			g_variant_get (parameters, "(uu)", &grab, NULL);
+			entry = g_hash_table_lookup (iapp->grabber_entries, GUINT_TO_POINTER (grab));
+			window_show_menu (iapp->default_app, entry, gtk_get_current_event_time (), iapp);
+		}
+	}
+}
+
 /* Object refs decrement */
 static void
 indicator_appmenu_dispose (GObject *object)
 {
 	IndicatorAppmenu * iapp = INDICATOR_APPMENU(object);
+
+	if (iapp->grabber_cancellable != NULL) {
+		g_cancellable_cancel (iapp->grabber_cancellable);
+		g_object_unref (iapp->grabber_cancellable);
+		iapp->grabber_cancellable = NULL;
+	}
+
+	if (iapp->grabber != NULL) {
+		g_signal_handlers_disconnect_by_data (iapp->grabber, iapp);
+
+		/* Remove our grabs while we have the grabber */
+		if (iapp->grabber_grabs != NULL) {
+			GHashTableIter iter;
+			gpointer value;
+
+			g_hash_table_iter_init (&iter, iapp->grabber_grabs);
+			while (g_hash_table_iter_next (&iter, NULL, &value)) {
+				g_dbus_proxy_call_sync (iapp->grabber,
+				                        "UngrabAccelerator",
+				                        g_variant_new_uint32 (GPOINTER_TO_UINT (value)),
+				                        G_DBUS_CALL_FLAGS_NONE,
+				                        -1,
+				                        NULL,
+				                        NULL);
+			}
+
+			g_hash_table_unref (iapp->grabber_grabs);
+			iapp->grabber_grabs = NULL;
+		}
+
+		g_object_unref (iapp->grabber);
+		iapp->grabber = NULL;
+	}
+
+	if (iapp->grabber_entries != NULL) {
+		g_hash_table_unref (iapp->grabber_entries);
+		iapp->grabber_entries = NULL;
+	}
+
+	if (iapp->grabber_grabs != NULL) {
+		g_hash_table_unref (iapp->grabber_grabs);
+		iapp->grabber_grabs = NULL;
+	}
 
 	if (iapp->dbus_registration != 0) {
 		g_dbus_connection_unregister_object(iapp->bus, iapp->dbus_registration);
@@ -1286,8 +1438,28 @@ bus_method_call (GDBusConnection * connection, const gchar * sender,
 static void
 window_entry_added (WindowMenu * mw, IndicatorObjectEntry * entry, gpointer user_data)
 {
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU (user_data);
+
 	entry->parent_object = user_data;
 	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_ADDED, entry);
+
+	if (iapp->grabber != NULL) {
+		gchar *accel;
+                static gchar mnemonic = 'a';
+		accel = g_strdup_printf ("<Alt>%c", mnemonic++);
+
+		g_dbus_proxy_call (iapp->grabber,
+		                   "GrabAccelerator",
+		                   g_variant_new_parsed ("(%s, 0)", accel),
+		                   G_DBUS_CALL_FLAGS_NONE,
+		                   -1,
+		                   NULL,
+		                   grabber_grabbed,
+		                   entry);
+
+		g_free (accel);
+	}
+
 	return;
 }
 
@@ -1295,6 +1467,29 @@ window_entry_added (WindowMenu * mw, IndicatorObjectEntry * entry, gpointer user
 static void
 window_entry_removed (WindowMenu * mw, IndicatorObjectEntry * entry, gpointer user_data)
 {
+	IndicatorAppmenu * iapp = INDICATOR_APPMENU (user_data);
+
+	if (iapp->grabber_grabs != NULL) {
+		guint grab = GPOINTER_TO_UINT (g_hash_table_lookup (iapp->grabber_grabs, entry));
+
+		if (grab != 0 && iapp->grabber != NULL) {
+			g_dbus_proxy_call (iapp->grabber,
+			                   "UngrabAccelerator",
+			                   g_variant_new_uint32 (grab),
+			                   G_DBUS_CALL_FLAGS_NONE,
+			                   -1,
+			                   NULL,
+			                   NULL,
+			                   iapp);
+		}
+
+		if (iapp->grabber_entries != NULL) {
+			g_hash_table_remove (iapp->grabber_entries, GUINT_TO_POINTER (grab));
+		}
+
+		g_hash_table_remove (iapp->grabber_grabs, entry);
+	}
+
 	entry->parent_object = user_data;
 	g_signal_emit_by_name(G_OBJECT(user_data), INDICATOR_OBJECT_SIGNAL_ENTRY_REMOVED, entry);
 	return;
