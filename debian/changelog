@@ -1,3 +1,11 @@
+indicator-appmenu (15.02.0+15.04.20150821-0ubuntu1) vivid; urgency=medium
+
+  [ Marco Trevisan (Treviño) ]
+  * IndicatorAppmenu: make sure we call window_menu_entry_activate also
+    in AllMenus mode (LP: #1430059)
+
+ -- CI Train Bot <ci-train-bot@canonical.com>  Fri, 21 Aug 2015 12:03:03 +0000
+
 indicator-appmenu (15.02.0+15.04.20150302-0ubuntu1) vivid; urgency=medium
 
   [ Marco Trevisan (Treviño) ]
