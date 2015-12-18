@@ -18,6 +18,8 @@ Build-Depends: debhelper (>= 9),
                libbamf3-dev (>= 0.5.2~bzr0),
                libappindicator3-dev,
                indicator-application (>= 0.4.90),
+               libunity-core-6.0-dev,
+               bamfdaemon
 Standards-Version: 3.9.2
 Homepage: http://launchpad.net/indicator-appmenu
 # If you aren't a member of ~indicator-applet-developers but need to upload
@@ -30,6 +32,8 @@ Package: indicator-appmenu
 Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
+         bamfdaemon,
+         libunity-core-6.0-9
 Recommends: indicator-applet | indicator-renderer,
             unity-gtk2-module,
             unity-gtk3-module,

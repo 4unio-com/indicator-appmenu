@@ -1,3 +1,11 @@
+indicator-appmenu (15.02.0+16.04.20151104-0ubuntu2) xenial; urgency=medium
+
+  * Add libunity-core-6.0-9 and bamfdaemon to depends
+    and add gtk-modules to GTK_MODULES to allow app menus
+    outside of lightdm+unity-greter
+
+ -- Eugene San (eugenesan) <eugenesan@gmail.com>  Fri, 18 Dec 2015 15:59:18 -0500
+
 indicator-appmenu (15.02.0+16.04.20151104-0ubuntu1) xenial; urgency=medium
 
   [ CI Train Bot ]
