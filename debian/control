@@ -33,9 +33,9 @@ Depends: ${shlibs:Depends},
 Recommends: indicator-applet | indicator-renderer,
             unity-gtk2-module,
             unity-gtk3-module,
-            appmenu-qt,
             appmenu-qt5,
             jayatana,
+Suggests: appmenu-qt,
 Description: Indicator for application menus.
  .
  This package provides support for application menus.
